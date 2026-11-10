@@ -245,6 +245,26 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
   });
 });
 
+const NOVA_API = "https://nova-ai-brain.successdahal75.workers.dev";
+
+async function askNOVA(message) {
+  const response = await fetch(NOVA_API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ message })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "NOVA could not respond.");
+  }
+
+  return data.reply;
+}
+
 renderProjects();
 </script>
 </body>
