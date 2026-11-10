@@ -133,6 +133,17 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
       <button class="primary" id="create">＋ New project</button>
     </div>
   </section>
+  
+  <section class="section" id="nova-response" hidden>
+    <div class="section-head">
+      <h2>NOVA's response</h2>
+      <span class="muted" id="nova-state">Ready</span>
+    </div>
+    <div class="project">
+      <p id="nova-answer" style="white-space:pre-wrap;color:var(--text);font-size:14px;line-height:1.7"></p>
+    </div>
+  </section>
+
 
   <section class="section">
     <div class="section-head">
@@ -218,7 +229,53 @@ function renderProjects() {
   });
 }
 
-document.getElementById("create").addEventListener("click", () => {
+
+const createButton = document.getElementById("create");
+const responseSection = document.getElementById("nova-response");
+const answerBox = document.getElementById("nova-answer");
+const novaState = document.getElementById("nova-state");
+
+createButton.addEventListener("click", async () => {
+  const prompt = idea.value.trim();
+
+  if (!prompt) {
+    idea.focus();
+    return;
+  }
+
+  createButton.disabled = true;
+  createButton.textContent = "Thinking...";
+  responseSection.hidden = false;
+  novaState.textContent = "Working...";
+  answerBox.textContent = "NOVA is thinking about your idea...";
+
+  try {
+    const reply = await askNOVA(prompt);
+
+    answerBox.textContent = reply;
+    novaState.textContent = "Response received";
+
+    const items = getProjects();
+
+    items.push({
+      title: prompt.length > 42 ? prompt.slice(0, 42) + "…" : prompt,
+      prompt,
+      response: reply,
+      createdAt: new Date().toISOString()
+    });
+
+    saveProjects(items);
+    renderProjects();
+
+  } catch (error) {
+    answerBox.textContent = "NOVA couldn't respond: " + error.message;
+    novaState.textContent = "Something went wrong";
+  } finally {
+    createButton.disabled = false;
+    createButton.textContent = "＋ New project";
+  }
+});
+
   const prompt = idea.value.trim();
   if (!prompt) {
     idea.focus();
