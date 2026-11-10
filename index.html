@@ -190,14 +190,51 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
 </main>
 
 <script>
+
 const idea = document.getElementById("idea");
 const projects = document.getElementById("projects");
 const count = document.getElementById("count");
+const createButton = document.getElementById("create");
+
+const NOVA_API = "https://nova-ai-brain.successdahal75.workers.dev";
 const storageKey = "nova_projects_v1";
 
+// Create NOVA's response area automatically.
+const responseSection = document.createElement("section");
+responseSection.className = "section";
+responseSection.hidden = true;
+
+const responseHeading = document.createElement("div");
+responseHeading.className = "section-head";
+
+const responseTitle = document.createElement("h2");
+responseTitle.textContent = "NOVA's response";
+
+const responseStatus = document.createElement("span");
+responseStatus.className = "muted";
+responseStatus.textContent = "Ready";
+
+responseHeading.append(responseTitle, responseStatus);
+
+const responseCard = document.createElement("div");
+responseCard.className = "project";
+
+const answerBox = document.createElement("p");
+answerBox.style.whiteSpace = "pre-wrap";
+answerBox.style.lineHeight = "1.7";
+answerBox.style.fontSize = "14px";
+
+responseCard.appendChild(answerBox);
+responseSection.append(responseHeading, responseCard);
+
+document.querySelector(".composer").after(responseSection);
+
 function getProjects() {
-  try { return JSON.parse(localStorage.getItem(storageKey) || "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(storageKey) || "[]");
+  } catch {
+    return [];
+  }
 }
 
 function saveProjects(items) {
@@ -206,13 +243,17 @@ function saveProjects(items) {
 
 function renderProjects() {
   const items = getProjects();
-  count.textContent = items.length + (items.length === 1 ? " project" : " projects");
+
+  count.textContent =
+    items.length + (items.length === 1 ? " project" : " projects");
+
   projects.replaceChildren();
 
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = "Your creative workspace is ready. Start your first project above.";
+    empty.textContent =
+      "Your creative workspace is ready. Start your first project above.";
     projects.appendChild(empty);
     return;
   }
@@ -220,89 +261,17 @@ function renderProjects() {
   items.slice().reverse().forEach(item => {
     const card = document.createElement("article");
     card.className = "project";
+
     const title = document.createElement("strong");
     title.textContent = item.title;
+
     const description = document.createElement("p");
     description.textContent = item.prompt;
+
     card.append(title, description);
     projects.appendChild(card);
   });
 }
-
-
-const createButton = document.getElementById("create");
-const responseSection = document.getElementById("nova-response");
-const answerBox = document.getElementById("nova-answer");
-const novaState = document.getElementById("nova-state");
-
-createButton.addEventListener("click", async () => {
-  const prompt = idea.value.trim();
-
-  if (!prompt) {
-    idea.focus();
-    return;
-  }
-
-  createButton.disabled = true;
-  createButton.textContent = "Thinking...";
-  responseSection.hidden = false;
-  novaState.textContent = "Working...";
-  answerBox.textContent = "NOVA is thinking about your idea...";
-
-  try {
-    const reply = await askNOVA(prompt);
-
-    answerBox.textContent = reply;
-    novaState.textContent = "Response received";
-
-    const items = getProjects();
-
-    items.push({
-      title: prompt.length > 42 ? prompt.slice(0, 42) + "…" : prompt,
-      prompt,
-      response: reply,
-      createdAt: new Date().toISOString()
-    });
-
-    saveProjects(items);
-    renderProjects();
-
-  } catch (error) {
-    answerBox.textContent = "NOVA couldn't respond: " + error.message;
-    novaState.textContent = "Something went wrong";
-  } finally {
-    createButton.disabled = false;
-    createButton.textContent = "＋ New project";
-  }
-});
-
-  const prompt = idea.value.trim();
-  if (!prompt) {
-    idea.focus();
-    idea.placeholder = "First, tell NOVA what you want to create...";
-    return;
-  }
-
-  const items = getProjects();
-  items.push({
-    title: prompt.length > 42 ? prompt.slice(0, 42) + "…" : prompt,
-    prompt,
-    createdAt: new Date().toISOString()
-  });
-  saveProjects(items);
-  idea.value = "";
-  renderProjects();
-});
-
-document.querySelectorAll("[data-prompt]").forEach(button => {
-  button.addEventListener("click", () => {
-    idea.value = button.dataset.prompt;
-    idea.focus();
-    window.scrollTo({top:0, behavior:"smooth"});
-  });
-});
-
-const NOVA_API = "https://nova-ai-brain.successdahal75.workers.dev";
 
 async function askNOVA(message) {
   const response = await fetch(NOVA_API, {
@@ -316,13 +285,74 @@ async function askNOVA(message) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || "NOVA could not respond.");
+    throw new Error(data.error || "Server error: " + response.status);
+  }
+
+  if (!data.reply) {
+    throw new Error("The AI server returned no reply.");
   }
 
   return data.reply;
 }
 
+createButton.addEventListener("click", async () => {
+  const prompt = idea.value.trim();
+
+  if (!prompt) {
+    idea.focus();
+    return;
+  }
+
+  createButton.disabled = true;
+  createButton.textContent = "Thinking...";
+
+  responseSection.hidden = false;
+  responseStatus.textContent = "Connecting...";
+  answerBox.textContent = "NOVA is thinking. Please wait...";
+
+  try {
+    const reply = await askNOVA(prompt);
+
+    answerBox.textContent = reply;
+    responseStatus.textContent = "Online · Response received";
+
+    const items = getProjects();
+
+    items.push({
+      title: prompt.length > 42
+        ? prompt.slice(0, 42) + "…"
+        : prompt,
+      prompt,
+      response: reply,
+      createdAt: new Date().toISOString()
+    });
+
+    saveProjects(items);
+    renderProjects();
+
+  } catch (error) {
+    answerBox.textContent =
+      "Connection error: " + error.message +
+      "\n\nPlease send this error to NOVA's developer.";
+
+    responseStatus.textContent = "Connection failed";
+
+  } finally {
+    createButton.disabled = false;
+    createButton.textContent = "＋ New project";
+  }
+});
+
+document.querySelectorAll("[data-prompt]").forEach(button => {
+  button.addEventListener("click", () => {
+    idea.value = button.dataset.prompt;
+    idea.focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
 renderProjects();
+
 </script>
 </body>
 </html>
