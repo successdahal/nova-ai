@@ -191,6 +191,7 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
 
 <script>
 
+
 const idea = document.getElementById("idea");
 const projects = document.getElementById("projects");
 const count = document.getElementById("count");
@@ -198,40 +199,106 @@ const createButton = document.getElementById("create");
 
 const NOVA_API = "https://nova-ai-brain.successdahal75.workers.dev";
 const storageKey = "nova_projects_v1";
+const conversationKey = "nova_conversation_v1";
 
-// Create NOVA's response area automatically.
-const responseSection = document.createElement("section");
-responseSection.className = "section";
-responseSection.hidden = true;
+let conversation = [];
 
-const responseHeading = document.createElement("div");
-responseHeading.className = "section-head";
+try {
+  conversation = JSON.parse(
+    localStorage.getItem(conversationKey) || "[]"
+  );
+  if (!Array.isArray(conversation)) conversation = [];
+} catch {
+  conversation = [];
+}
 
-const responseTitle = document.createElement("h2");
-responseTitle.textContent = "NOVA's response";
+// Build the chat interface.
+const chat = document.createElement("section");
+chat.className = "section";
+chat.innerHTML = `
+  <div class="section-head">
+    <h2>Your NOVA conversation</h2>
+    <button id="new-chat" class="primary" type="button">
+      + New Chat
+    </button>
+  </div>
+  <div id="chat-messages" class="project-list"></div>
+  <p id="chat-status" class="muted">Your conversation is ready.</p>
+`;
 
-const responseStatus = document.createElement("span");
-responseStatus.className = "muted";
-responseStatus.textContent = "Ready";
+document.querySelector(".composer").after(chat);
 
-responseHeading.append(responseTitle, responseStatus);
+const chatMessages = document.getElementById("chat-messages");
+const chatStatus = document.getElementById("chat-status");
+const newChatButton = document.getElementById("new-chat");
 
-const responseCard = document.createElement("div");
-responseCard.className = "project";
+// Add chat styling.
+const chatStyle = document.createElement("style");
+chatStyle.textContent = `
+  #chat-messages { gap: 12px; }
+  .chat-message {
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .chat-message.user {
+    background: #211e3b;
+    border-color: #554b82;
+  }
+  .chat-message strong {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12px;
+    color: var(--cyan);
+  }
+  .chat-message p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.7;
+    font-size: 14px;
+  }
+  #new-chat {
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+`;
+document.head.appendChild(chatStyle);
 
-const answerBox = document.createElement("p");
-answerBox.style.whiteSpace = "pre-wrap";
-answerBox.style.lineHeight = "1.7";
-answerBox.style.fontSize = "14px";
+function saveConversation() {
+  localStorage.setItem(
+    conversationKey,
+    JSON.stringify(conversation)
+  );
+}
 
-responseCard.appendChild(answerBox);
-responseSection.append(responseHeading, responseCard);
+function renderConversation() {
+  chatMessages.replaceChildren();
 
-document.querySelector(".composer").after(responseSection);
+  conversation.forEach(message => {
+    const card = document.createElement("div");
+    card.className =
+      "chat-message " +
+      (message.role === "user" ? "user" : "assistant");
+
+    const heading = document.createElement("strong");
+    heading.textContent =
+      message.role === "user" ? "YOU" : "NOVA";
+
+    const content = document.createElement("p");
+    content.textContent = message.content;
+
+    card.append(heading, content);
+    chatMessages.appendChild(card);
+  });
+}
 
 function getProjects() {
   try {
-    return JSON.parse(localStorage.getItem(storageKey) || "[]");
+    return JSON.parse(
+      localStorage.getItem(storageKey) || "[]"
+    );
   } catch {
     return [];
   }
@@ -273,13 +340,15 @@ function renderProjects() {
   });
 }
 
-async function askNOVA(message) {
+async function askNOVA(messages) {
   const response = await fetch(NOVA_API, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ message })
+    body: JSON.stringify({
+      messages: messages.slice(-12)
+    })
   });
 
   const data = await response.json();
@@ -289,7 +358,7 @@ async function askNOVA(message) {
   }
 
   if (!data.reply) {
-    throw new Error("The AI server returned no reply.");
+    throw new Error("NOVA returned an empty response.");
   }
 
   return data.reply;
@@ -303,21 +372,39 @@ createButton.addEventListener("click", async () => {
     return;
   }
 
+  if (prompt.length > 4000) {
+    chatStatus.textContent = "Please shorten your message.";
+    return;
+  }
+
   createButton.disabled = true;
   createButton.textContent = "Thinking...";
+  chatStatus.textContent = "NOVA is thinking...";
 
-  responseSection.hidden = false;
-  responseStatus.textContent = "Connecting...";
-  answerBox.textContent = "NOVA is thinking. Please wait...";
+  conversation.push({
+    role: "user",
+    content: prompt
+  });
+
+  idea.value = "";
+  saveConversation();
+  renderConversation();
 
   try {
-    const reply = await askNOVA(prompt);
+    const reply = await askNOVA(conversation);
 
-    answerBox.textContent = reply;
-    responseStatus.textContent = "Online · Response received";
+    conversation.push({
+      role: "assistant",
+      content: reply
+    });
+
+    conversation = conversation.slice(-12);
+    saveConversation();
+    renderConversation();
+
+    chatStatus.textContent = "NOVA replied successfully.";
 
     const items = getProjects();
-
     items.push({
       title: prompt.length > 42
         ? prompt.slice(0, 42) + "…"
@@ -331,16 +418,20 @@ createButton.addEventListener("click", async () => {
     renderProjects();
 
   } catch (error) {
-    answerBox.textContent =
-      "Connection error: " + error.message +
-      "\n\nPlease send this error to NOVA's developer.";
-
-    responseStatus.textContent = "Connection failed";
-
+    chatStatus.textContent = "Connection error: " + error.message;
   } finally {
     createButton.disabled = false;
     createButton.textContent = "＋ New project";
   }
+});
+
+newChatButton.addEventListener("click", () => {
+  conversation = [];
+  saveConversation();
+  renderConversation();
+  chatStatus.textContent = "New conversation started.";
+  idea.value = "";
+  idea.focus();
 });
 
 document.querySelectorAll("[data-prompt]").forEach(button => {
@@ -351,6 +442,7 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
   });
 });
 
+renderConversation();
 renderProjects();
 
 </script>
