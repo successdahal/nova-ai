@@ -339,7 +339,12 @@ function renderProjects() {
     projects.appendChild(card);
   });
 }
+let NOVA_USER_ID = localStorage.getItem("nova_user_id");
 
+if (!NOVA_USER_ID) {
+  NOVA_USER_ID = crypto.randomUUID();
+  localStorage.setItem("nova_user_id", NOVA_USER_ID);
+}
 async function askNOVA(messages) {
   const response = await fetch(NOVA_API, {
     method: "POST",
@@ -347,8 +352,9 @@ async function askNOVA(messages) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      messages: messages.slice(-12)
-    })
+  messages: messages.slice(-12),
+  userId: NOVA_USER_ID
+})
   });
 
   const data = await response.json();
