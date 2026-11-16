@@ -452,5 +452,126 @@ renderConversation();
 renderProjects();
 
 </script>
+  
+<div id="nova-memory-panel" style="position:fixed;bottom:18px;right:18px;z-index:9999;font-family:Arial,sans-serif;">
+  <button id="nova-memory-toggle" style="background:#7657ff;color:white;border:0;border-radius:12px;padding:13px 18px;font-weight:bold;">
+    🧠 NOVA Memory
+  </button>
+
+  <div id="nova-memory-window" hidden style="position:absolute;bottom:58px;right:0;width:min(340px,90vw);max-height:70vh;overflow:auto;background:#171725;color:white;border:1px solid #45445f;border-radius:15px;padding:16px;box-shadow:0 8px 30px #0008;">
+    <h3 style="margin-top:0;">NOVA Memory</h3>
+    <p style="font-size:13px;color:#aaa;">View, update and delete your saved memories.</p>
+    <button id="nova-memory-refresh" style="padding:9px;border-radius:8px;">Refresh memories</button>
+    <div id="nova-memory-list" style="margin-top:14px;"></div>
+    <p id="nova-memory-status" style="font-size:12px;color:#aaa;"></p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API = "https://nova-ai-brain.successdahal75.workers.dev";
+  const userId = localStorage.getItem("nova_user_id");
+
+  const toggle = document.getElementById("nova-memory-toggle");
+  const windowBox = document.getElementById("nova-memory-window");
+  const list = document.getElementById("nova-memory-list");
+  const status = document.getElementById("nova-memory-status");
+
+  async function request(action, extra = {}) {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action, userId, ...extra})
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Request failed");
+    return data;
+  }
+
+  function makeButton(label, callback) {
+    const button = document.createElement("button");
+    button.textContent = label;
+    button.style.margin = "5px 5px 5px 0";
+    button.style.padding = "7px";
+    button.style.borderRadius = "7px";
+    button.addEventListener("click", callback);
+    return button;
+  }
+
+  async function loadMemories() {
+    list.replaceChildren();
+    status.textContent = "Loading memories...";
+
+    try {
+      const data = await request("list_memories");
+      list.replaceChildren();
+
+      if (!data.memories.length) {
+        status.textContent = "No saved memories yet.";
+        return;
+      }
+
+      data.memories.forEach(memory => {
+        const card = document.createElement("div");
+        card.style.cssText =
+          "border:1px solid #444;padding:10px;margin:10px 0;border-radius:9px;";
+
+        const category = document.createElement("strong");
+        category.textContent = memory.category;
+
+        const content = document.createElement("p");
+        content.textContent = memory.content;
+        content.style.cssText = "overflow-wrap:anywhere;font-size:13px;";
+
+        card.append(category, content);
+
+        card.append(
+          makeButton("Edit", async () => {
+            const updated = prompt("Edit memory:", memory.content);
+            if (updated === null || !updated.trim()) return;
+
+            try {
+              await request("update_memory", {
+                id: memory.id,
+                content: updated.trim(),
+                category: memory.category
+              });
+              await loadMemories();
+            } catch (error) {
+              status.textContent = error.message;
+            }
+          }),
+
+          makeButton("Delete", async () => {
+            if (!confirm("Delete this memory permanently?")) return;
+
+            try {
+              await request("delete_memory", {id: memory.id});
+              await loadMemories();
+            } catch (error) {
+              status.textContent = error.message;
+            }
+          })
+        );
+
+        list.appendChild(card);
+      });
+
+      status.textContent = data.memories.length + " memories saved.";
+    } catch (error) {
+      status.textContent = "Error: " + error.message;
+    }
+  }
+
+  toggle.addEventListener("click", () => {
+    windowBox.hidden = !windowBox.hidden;
+    if (!windowBox.hidden) loadMemories();
+  });
+
+  document.getElementById("nova-memory-refresh")
+    .addEventListener("click", loadMemories);
+})();
+</script>
 </body>
 </html>
