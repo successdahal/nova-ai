@@ -286,6 +286,72 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
   </section>
 
   <section class="studio" id="video-studio">
+  <div class="section-head">
+    <h2>🎬 NOVA Video Studio</h2>
+    <span class="muted">AI Video Generator</span>
+  </div>
+
+  <p class="muted" style="line-height:1.7;margin-bottom:15px;">
+    Create real moving video footage from your imagination.
+    Generate a clip, wait for processing, preview it and download it.
+  </p>
+
+  <label for="video-prompt">Describe your video</label>
+  <textarea
+    id="video-prompt"
+    maxlength="1800"
+    placeholder="Example: A cinematic drone shot flying over the Himalayas at sunrise. Clouds move naturally between the mountains, golden sunlight illuminates the peaks, realistic camera movement..."
+  ></textarea>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <label for="video-duration">Video duration</label>
+      <select id="video-duration" style="width:100%;padding:12px;border-radius:10px;background:#0c1220;color:white;border:1px solid #263249;">
+        <option value="4">4 seconds</option>
+        <option value="8">8 seconds</option>
+        <option value="12">12 seconds</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="video-ratio">Aspect ratio</label>
+      <select id="video-ratio" style="width:100%;padding:12px;border-radius:10px;background:#0c1220;color:white;border:1px solid #263249;">
+        <option value="16:9">Landscape 16:9</option>
+        <option value="9:16">Portrait 9:16</option>
+        <option value="1:1">Square 1:1</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="studio-actions">
+    <button class="primary" id="video-generate">Generate AI video</button>
+    <button id="video-clear">Clear</button>
+  </div>
+
+  <p class="studio-status" id="video-status">
+    Ready. Describe your video to begin.
+  </p>
+
+  <div id="video-progress" hidden style="margin-top:12px;">
+    <div style="height:7px;background:#263249;border-radius:20px;overflow:hidden;">
+      <div style="height:100%;width:35%;background:linear-gradient(90deg,#a99bff,#5be0e8);border-radius:20px;"></div>
+    </div>
+    <p class="muted">Your video is being processed by the AI provider.</p>
+  </div>
+
+  <video
+    id="video-preview"
+    controls
+    playsinline
+    style="display:none;width:100%;margin-top:16px;border-radius:13px;background:#080b14;"
+  ></video>
+
+  <a
+    id="video-download"
+    hidden
+    style="display:inline-block;margin-top:12px;color:var(--cyan);"
+  >Download your video</a>
+</section>
     <div class="section-head">
       <h2>🎬 NOVA Video Studio</h2>
       <span class="muted">Free scene builder</span>
