@@ -157,7 +157,7 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
       <button class="primary" id="create">＋ New project</button>
     </div>
   </section>
-  
+
   <section class="section" id="nova-response" hidden>
     <div class="section-head">
       <h2>NOVA's response</h2>
@@ -217,9 +217,35 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
   <section class="studio" id="video-studio">
     <div class="section-head">
       <h2>🎬 NOVA Video Studio</h2>
-      <span class="muted">Coming next</span>
+      <span class="muted">Free scene builder</span>
     </div>
-    <p class="muted" style="line-height:1.7;margin:0;">The next engine will create short scenes and assemble them into longer projects. Paid video generation is not enabled, so this panel will not start billable jobs.</p>
+    <p class="muted" style="line-height:1.7;margin:0 0 12px;">Create a short video from AI-generated scene images. NOVA animates the scenes in your browser and exports a WebM video. This is image-based animation, not AI-generated moving footage.</p>
+    <label for="video-prompt">Describe your video</label>
+    <textarea id="video-prompt" maxlength="1800" placeholder="A cinematic journey through Gandruk, Nepal, from sunrise to sunset..."></textarea>
+    <div class="studio-actions">
+      <button class="primary" id="video-generate-scenes">Generate 3 scenes</button>
+      <button id="video-render" disabled>Render video</button>
+      <button id="video-clear">Clear scenes</button>
+    </div>
+    <p class="studio-status" id="video-status">Ready. Generate three scene images, then render them into a video.</p>
+    <div id="video-scenes" class="grid" style="margin-top:12px;"></div>
+    <video id="video-preview" controls playsinline style="display:none;width:100%;margin-top:14px;border-radius:13px;background:#080b14;"></video>
+    <a id="video-download" hidden style="display:inline-block;margin-top:10px;color:var(--cyan);">Download rendered video</a>
+  </section>
+
+  <section class="studio" id="developer-lab">
+    <div class="section-head">
+      <h2>🛠️ NOVA Developer Lab</h2>
+      <span class="muted">Self-improvement workspace</span>
+    </div>
+    <p class="muted" style="line-height:1.7;margin:0 0 12px;">Describe a feature or problem. NOVA can analyze it and propose code changes. Review and approve changes yourself before publishing; this panel does not silently overwrite your live website.</p>
+    <label for="developer-request">What should NOVA improve?</label>
+    <textarea id="developer-request" maxlength="3000" placeholder="Example: Add a project library with search, rename and delete..."></textarea>
+    <div class="studio-actions">
+      <button class="primary" id="developer-run">Analyze and build a proposal</button>
+    </div>
+    <p class="studio-status" id="developer-status">Ready for a development request.</p>
+    <pre id="developer-output" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;color:var(--text);font:13px/1.65 ui-monospace,monospace;"></pre>
   </section>
 
   <section class="section">
@@ -233,7 +259,7 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
   </section>
 
   <div class="notice">
-    <strong>Development status:</strong> Chat, memory and image generation/editing are connected through the NOVA Worker. Projects are currently saved in this browser.
+    <strong>Development status:</strong> Chat, memory and image generation/editing use the NOVA Worker. Projects are saved in this browser. Video Studio assembles generated still images into WebM locally; it is not a text-to-video model.
   </div>
 
   <footer>NOVA · THINK · BUILD · CREATE · IMPROVE</footer>
@@ -468,8 +494,7 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 renderConversation();
 renderProjects();
 </script>
-
-<script>
+  <script>
 (() => {
   const API = "https://nova-ai-brain.successdahal75.workers.dev";
   const userId = localStorage.getItem("nova_user_id");
@@ -738,5 +763,252 @@ renderProjects();
     .addEventListener("click", loadMemories);
 })();
 </script>
+
+<script>
+(() => {
+  const API = "https://nova-ai-brain.successdahal75.workers.dev";
+  const userId = localStorage.getItem("nova_user_id");
+  const promptBox = document.getElementById("video-prompt");
+  const generateButton = document.getElementById("video-generate-scenes");
+  const renderButton = document.getElementById("video-render");
+  const clearButton = document.getElementById("video-clear");
+  const status = document.getElementById("video-status");
+  const scenesBox = document.getElementById("video-scenes");
+  const preview = document.getElementById("video-preview");
+  const download = document.getElementById("video-download");
+  let scenes = [];
+  let renderedUrl = null;
+
+  async function requestImage(prompt) {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "generate_image", userId, prompt })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Scene generation failed.");
+    if (!data.imageData) throw new Error("The image model returned no scene image.");
+    return data.imageData;
+  }
+
+  function drawScenes() {
+    scenesBox.replaceChildren();
+    scenes.forEach((scene, index) => {
+      const card = document.createElement("div");
+      card.className = "project";
+      const heading = document.createElement("strong");
+      heading.textContent = "Scene " + (index + 1);
+      const image = document.createElement("img");
+      image.src = scene.image;
+      image.alt = "Video scene " + (index + 1);
+      image.style.cssText = "width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:9px;margin-top:8px;";
+      const caption = document.createElement("p");
+      caption.textContent = scene.prompt;
+      card.append(heading, image, caption);
+      scenesBox.appendChild(card);
+    });
+    renderButton.disabled = scenes.length === 0;
+  }
+
+  generateButton.addEventListener("click", async () => {
+    const basePrompt = promptBox.value.trim();
+    if (!basePrompt) {
+      status.textContent = "Describe your video first.";
+      promptBox.focus();
+      return;
+    }
+    generateButton.disabled = true;
+    renderButton.disabled = true;
+    scenes = [];
+    drawScenes();
+    if (renderedUrl) URL.revokeObjectURL(renderedUrl);
+    renderedUrl = null;
+    preview.removeAttribute("src");
+    preview.style.display = "none";
+    download.hidden = true;
+    const sceneIdeas = [
+      "Opening establishing shot, wide cinematic view, " + basePrompt + ", first scene, no text.",
+      "Middle scene, a closer and more immersive perspective, " + basePrompt + ", visual continuity, no text.",
+      "Final scene, memorable cinematic closing composition, " + basePrompt + ", warm natural light, no text."
+    ];
+    try {
+      for (let i = 0; i < sceneIdeas.length; i++) {
+        status.textContent = "Generating scene " + (i + 1) + " of 3...";
+        const image = await requestImage(sceneIdeas[i]);
+        scenes.push({ image, prompt: sceneIdeas[i] });
+        drawScenes();
+      }
+      status.textContent = "Three scenes are ready. Select Render video to assemble them.";
+    } catch (error) {
+      status.textContent = "Video scene error: " + error.message;
+    } finally {
+      generateButton.disabled = false;
+    }
+  });
+
+  clearButton.addEventListener("click", () => {
+    scenes = [];
+    drawScenes();
+    if (renderedUrl) URL.revokeObjectURL(renderedUrl);
+    renderedUrl = null;
+    preview.removeAttribute("src");
+    preview.style.display = "none";
+    download.hidden = true;
+    status.textContent = "Scenes cleared.";
+  });
+
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("A scene image could not be loaded."));
+      image.src = src;
+    });
+  }
+
+  renderButton.addEventListener("click", async () => {
+    if (!scenes.length) return;
+    if (!("MediaRecorder" in window) || !HTMLCanvasElement.prototype.captureStream) {
+      status.textContent = "This browser does not support local video recording. Try an updated desktop Chrome or Edge.";
+      return;
+    }
+    renderButton.disabled = true;
+    generateButton.disabled = true;
+    status.textContent = "Preparing scene images...";
+    try {
+      const images = await Promise.all(scenes.map(scene => loadImage(scene.image)));
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      const stream = canvas.captureStream(24);
+      const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+      const chunks = [];
+      recorder.ondataavailable = event => { if (event.data && event.data.size) chunks.push(event.data); };
+      const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+      recorder.start(250);
+
+      const drawCover = (img, progress, alpha = 1) => {
+        const scale = Math.max(canvas.width / img.width, canvas.height / img.height) * (1.02 + progress * 0.08);
+        const width = img.width * scale;
+        const height = img.height * scale;
+        const drift = progress - 0.5;
+        const x = (canvas.width - width) / 2 - drift * 24;
+        const y = (canvas.height - height) / 2 - drift * 14;
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, x, y, width, height);
+        ctx.globalAlpha = 1;
+      };
+
+      const totalPerScene = 3500;
+      const fadeMs = 450;
+      for (let i = 0; i < images.length; i++) {
+        status.textContent = "Rendering scene " + (i + 1) + " of " + images.length + "...";
+        const start = performance.now();
+        await new Promise(resolve => {
+          const frame = now => {
+            const elapsed = Math.min(totalPerScene, now - start);
+            const progress = elapsed / totalPerScene;
+            ctx.fillStyle = "#080b14";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawCover(images[i], progress);
+            if (i > 0 && elapsed < fadeMs) {
+              ctx.fillStyle = "rgba(8,11,20," + (1 - elapsed / fadeMs) + ")";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            if (elapsed < totalPerScene) requestAnimationFrame(frame);
+            else resolve();
+          };
+          requestAnimationFrame(frame);
+        });
+      }
+
+      recorder.stop();
+      await stopped;
+      stream.getTracks().forEach(track => track.stop());
+      const blob = new Blob(chunks, { type: "video/webm" });
+      if (!blob.size) throw new Error("The browser did not produce a video file.");
+      if (renderedUrl) URL.revokeObjectURL(renderedUrl);
+      renderedUrl = URL.createObjectURL(blob);
+      preview.src = renderedUrl;
+      preview.style.display = "block";
+      download.href = renderedUrl;
+      download.download = "nova-video.webm";
+      download.hidden = false;
+      status.textContent = "Video rendered successfully. Download the WebM file below.";
+    } catch (error) {
+      status.textContent = "Render error: " + error.message;
+    } finally {
+      renderButton.disabled = scenes.length === 0;
+      generateButton.disabled = false;
+    }
+  });
+})();
+</script>
+
+<script>
+(() => {
+  const button = document.getElementById("developer-run");
+  const requestBox = document.getElementById("developer-request");
+  const output = document.getElementById("developer-output");
+  const status = document.getElementById("developer-status");
+  button.addEventListener("click", async () => {
+    const requestText = requestBox.value.trim();
+    if (!requestText) {
+      status.textContent = "Describe the improvement you want first.";
+      requestBox.focus();
+      return;
+    }
+    button.disabled = true;
+    status.textContent = "NOVA is analyzing the development request...";
+    output.textContent = "";
+    const developerPrompt = [
+      "Act as NOVA's software development assistant.",
+      "Analyze the requested feature for the existing NOVA website and Cloudflare Worker.",
+      "Be honest about what you can and cannot inspect. You do not have direct access to the user's GitHub repository or live files unless their contents are pasted into this conversation.",
+      "Return: 1) feasibility and dependencies, 2) files that need changes, 3) complete implementation code or clearly marked replacement sections, 4) deployment steps, 5) tests and rollback advice.",
+      "Preserve existing chat, D1 memory, image generation, user identity and project storage. Do not claim you changed or deployed anything.",
+      "Prefer free and browser-native options. Clearly identify any paid service or usage limit. Never request API keys or passwords in chat.",
+      "User's requested improvement: " + requestText
+    ].join("\\n");
+    try {
+      const response = await fetch("https://nova-ai-brain.successdahal75.workers.dev", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: localStorage.getItem("nova_user_id"),
+          messages: [{ role: "user", content: developerPrompt }]
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Development request failed.");
+      output.textContent = data.reply || "NOVA returned an empty proposal.";
+      status.textContent = "Proposal generated. Review it before applying any code.";
+      try {
+        const key = "nova_projects_v1";
+        const saved = JSON.parse(localStorage.getItem(key) || "[]");
+        saved.push({
+          title: "Development: " + requestText.slice(0, 36),
+          prompt: requestText,
+          response: data.reply,
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem(key, JSON.stringify(saved));
+        if (typeof renderProjects === "function") renderProjects();
+      } catch (storageError) {
+        status.textContent += " (The proposal could not be saved to Projects.)";
+      }
+    } catch (error) {
+      status.textContent = "Developer Lab error: " + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
