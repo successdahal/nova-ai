@@ -369,7 +369,66 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
     <video id="video-preview" controls playsinline style="display:none;width:100%;margin-top:14px;border-radius:13px;background:#080b14;"></video>
     <a id="video-download" hidden style="display:inline-block;margin-top:10px;color:var(--cyan);">Download rendered video</a>
   </section>
+<section class="studio" id="website-builder">
 
+  <div class="section-head">
+    <h2>🌐 NOVA Website Builder</h2>
+    <span class="muted">AI-powered creation</span>
+  </div>
+
+  <p class="muted" style="line-height:1.7;">
+    Describe your idea and NOVA will help you build a complete website.
+    Preview, edit and manage your projects.
+  </p>
+
+  <label for="website-prompt">What website do you want to build?</label>
+
+  <textarea
+    id="website-prompt"
+    maxlength="5000"
+    placeholder="Build a modern portfolio website with a dark theme, animations, projects gallery and contact form..."
+  ></textarea>
+
+  <div class="studio-actions">
+    <button class="primary" id="website-generate">Build Website</button>
+    <button id="website-reset">New Project</button>
+  </div>
+
+  <p class="studio-status" id="website-status">
+    Ready to build your website.
+  </p>
+
+  <div id="website-workspace" style="display:none;margin-top:18px;">
+
+    <div class="section-head">
+      <h3>Website Preview</h3>
+      <button id="website-refresh">Refresh Preview</button>
+    </div>
+
+    <iframe
+      id="website-preview"
+      title="NOVA Website Preview"
+      sandbox="allow-forms allow-scripts"
+      style="width:100%;height:600px;background:white;border:1px solid var(--line);border-radius:13px;"
+    ></iframe>
+
+    <label for="website-edit-prompt">Tell NOVA what to change</label>
+
+    <textarea
+      id="website-edit-prompt"
+      placeholder="Make the header smaller, change the background to black..."
+    ></textarea>
+
+    <div class="studio-actions">
+      <button class="primary" id="website-edit">Edit Website</button>
+      <button id="website-download">Download HTML</button>
+    </div>
+
+  </div>
+
+  <textarea id="website-source" hidden></textarea>
+
+</section>
   <section class="studio" id="developer-lab">
     <div class="section-head">
       <h2>🛠️ NOVA Developer Lab</h2>
