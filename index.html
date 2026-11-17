@@ -1006,256 +1006,228 @@ renderProjects();
 <script>
 (() => {
   const API = "https://nova-ai-brain.successdahal75.workers.dev";
-  const userId = localStorage.getItem("nova_user_id");
 
   const promptBox = document.getElementById("video-prompt");
-  const generateButton = document.getElementById("video-generate-scenes");
-  const renderButton = document.getElementById("video-render");
+  const durationBox = document.getElementById("video-duration");
+  const ratioBox = document.getElementById("video-ratio");
+  const generateButton = document.getElementById("video-generate");
   const clearButton = document.getElementById("video-clear");
-  const status = document.getElementById("video-status");
-  const scenesBox = document.getElementById("video-scenes");
-  const preview = document.getElementById("video-preview");
-  const download = document.getElementById("video-download");
+  const statusBox = document.getElementById("video-status");
+  const progressBox = document.getElementById("video-progress");
+  const previewBox = document.getElementById("video-preview");
+  const downloadButton = document.getElementById("video-download");
 
-  let scenes = [];
-  let renderedUrl = null;
-
-  async function requestImage(prompt) {
-    const response = await fetch(API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "generate_image", userId, prompt })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Scene generation failed.");
-    }
-
-    if (!data.imageData) {
-      throw new Error("The image model returned no scene image.");
-    }
-
-    return data.imageData;
+  if (!promptBox || !generateButton) {
+    console.error("NOVA Video Studio elements not found.");
+    return;
   }
 
-  function drawScenes() {
-    scenesBox.replaceChildren();
+  let activeJob = 0;
+  let currentVideoUrl = "";
 
-    scenes.forEach((scene, index) => {
-      const card = document.createElement("div");
-      card.className = "project";
+  function setStatus(message, progress) {
+    if (statusBox) statusBox.textContent = message;
 
-      const heading = document.createElement("strong");
-      heading.textContent = "Scene " + (index + 1);
+    if (progressBox) {
+      progressBox.style.width = Math.max(0, Math.min(100, progress)) + "%";
+    }
+  }
 
-      const image = document.createElement("img");
-      image.src = scene.image;
-      image.alt = "Video scene " + (index + 1);
-      image.style.cssText = "width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:9px;margin-top:8px;";
+  function getUserId() {
+    return localStorage.getItem("nova_user_id") || "nova-guest";
+  }
 
-      const caption = document.createElement("p");
-      caption.textContent = scene.prompt;
-
-      card.append(heading, image, caption);
-      scenesBox.appendChild(card);
+  async function apiRequest(data) {
+    const response = await fetch(API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        ...data,
+        userId: getUserId()
+      })
     });
 
-    renderButton.disabled = scenes.length === 0;
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        result.error ||
+        result.message ||
+        "Video service returned HTTP " + response.status
+      );
+    }
+
+    return result;
+  }
+
+  function showVideo(url) {
+    currentVideoUrl = url;
+
+    if (previewBox) {
+      previewBox.innerHTML = "";
+
+      const video = document.createElement("video");
+      video.src = url;
+      video.controls = true;
+      video.playsInline = true;
+      video.style.width = "100%";
+      video.style.maxHeight = "500px";
+
+      previewBox.appendChild(video);
+    }
+
+    if (downloadButton) {
+      downloadButton.href = url;
+      downloadButton.download = "nova-ai-video.mp4";
+      downloadButton.style.display = "inline-flex";
+    }
   }
 
   generateButton.addEventListener("click", async () => {
-    const basePrompt = promptBox.value.trim();
+    const prompt = promptBox.value.trim();
 
-    if (!basePrompt) {
-      status.textContent = "Describe your video first.";
+    if (!prompt) {
+      setStatus("Describe the video you want to create.", 0);
       promptBox.focus();
       return;
     }
 
+    const job = ++activeJob;
+
     generateButton.disabled = true;
-    renderButton.disabled = true;
+    generateButton.textContent = "Creating video...";
+    currentVideoUrl = "";
 
-    scenes = [];
-    drawScenes();
+    if (previewBox) previewBox.innerHTML = "";
+    if (downloadButton) downloadButton.style.display = "none";
 
-    if (renderedUrl) URL.revokeObjectURL(renderedUrl);
-
-    renderedUrl = null;
-    preview.removeAttribute("src");
-    preview.style.display = "none";
-    download.hidden = true;
-
-    const sceneIdeas = [
-      "Opening establishing shot, wide cinematic view, " + basePrompt + ", first scene, no text.",
-      "Middle scene, a closer and more immersive perspective, " + basePrompt + ", visual continuity, no text.",
-      "Final scene, memorable cinematic closing composition, " + basePrompt + ", warm natural light, no text."
-    ];
+    setStatus("Sending your video request to NOVA...", 5);
 
     try {
-      for (let i = 0; i < sceneIdeas.length; i++) {
-        status.textContent = "Generating scene " + (i + 1) + " of 3...";
+      const duration = Number(durationBox?.value || 8);
+      const aspectRatio = ratioBox?.value || "16:9";
 
-        const image = await requestImage(sceneIdeas[i]);
+      const result = await apiRequest({
+        action: "generate_video",
+        prompt,
+        seconds: duration,
+        duration,
+        aspectRatio,
+        model: "agnes-video-2.5-flash"
+      });
 
-        scenes.push({ image, prompt: sceneIdeas[i] });
-        drawScenes();
+      if (job !== activeJob) return;
+
+      const videoId =
+        result.videoId ||
+        result.video_id ||
+        result.id ||
+        result.data?.video_id;
+
+      if (!videoId) {
+        throw new Error(
+          result.error ||
+          result.message ||
+          "The video service did not return a video ID."
+        );
       }
 
-      status.textContent = "Three scenes are ready. Select Render video to assemble them.";
+      setStatus("Video request accepted. Waiting for generated footage...", 15);
 
-    } catch (error) {
-      status.textContent = "Video scene error: " + error.message;
-    } finally {
-      generateButton.disabled = false;
-    }
-  });
+      for (let attempt = 1; attempt <= 90; attempt++) {
+        if (job !== activeJob) return;
 
-  clearButton.addEventListener("click", () => {
-    scenes = [];
-    drawScenes();
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
-    if (renderedUrl) URL.revokeObjectURL(renderedUrl);
+        if (job !== activeJob) return;
 
-    renderedUrl = null;
-    preview.removeAttribute("src");
-    preview.style.display = "none";
-    download.hidden = true;
-
-    status.textContent = "Scenes cleared.";
-  });
-
-  function loadImage(src) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("A scene image could not be loaded."));
-      image.src = src;
-    });
-  }
-
-  renderButton.addEventListener("click", async () => {
-    if (!scenes.length) return;
-
-    if (!("MediaRecorder" in window) || !HTMLCanvasElement.prototype.captureStream) {
-      status.textContent = "This browser does not support local video recording. Try an updated desktop Chrome or Edge.";
-      return;
-    }
-
-    renderButton.disabled = true;
-    generateButton.disabled = true;
-    status.textContent = "Preparing scene images...";
-
-    try {
-      const images = await Promise.all(scenes.map(scene => loadImage(scene.image)));
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 1280;
-      canvas.height = 720;
-
-      const ctx = canvas.getContext("2d");
-      const stream = canvas.captureStream(24);
-
-      const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm";
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType: mime,
-        videoBitsPerSecond: 4000000
-      });
-
-      const chunks = [];
-
-      recorder.ondataavailable = event => {
-        if (event.data && event.data.size) chunks.push(event.data);
-      };
-
-      const stopped = new Promise(resolve => {
-        recorder.onstop = resolve;
-      });
-
-      recorder.start(250);
-
-      const drawCover = (img, progress, alpha = 1) => {
-        const scale = Math.max(canvas.width / img.width, canvas.height / img.height) * (1.02 + progress * 0.08);
-        const width = img.width * scale;
-        const height = img.height * scale;
-        const drift = progress - 0.5;
-        const x = (canvas.width - width) / 2 - drift * 24;
-        const y = (canvas.height - height) / 2 - drift * 14;
-
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(img, x, y, width, height);
-        ctx.globalAlpha = 1;
-      };
-
-      const totalPerScene = 3500;
-      const fadeMs = 450;
-
-      for (let i = 0; i < images.length; i++) {
-        status.textContent = "Rendering scene " + (i + 1) + " of " + images.length + "...";
-
-        const start = performance.now();
-
-        await new Promise(resolve => {
-          const frame = now => {
-            const elapsed = Math.min(totalPerScene, now - start);
-            const progress = elapsed / totalPerScene;
-
-            ctx.fillStyle = "#080b14";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawCover(images[i], progress);
-
-            if (i > 0 && elapsed < fadeMs) {
-              ctx.fillStyle = "rgba(8,11,20," + (1 - elapsed / fadeMs) + ")";
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-
-            if (elapsed < totalPerScene) {
-              requestAnimationFrame(frame);
-            } else {
-              resolve();
-            }
-          };
-
-          requestAnimationFrame(frame);
+        const status = await apiRequest({
+          action: "check_video",
+          videoId,
+          video_id: videoId,
+          model: "agnes-video-2.5-flash"
         });
+
+        if (job !== activeJob) return;
+
+        const state = String(
+          status.status ||
+          status.data?.status ||
+          ""
+        ).toLowerCase();
+
+        const videoUrl =
+          status.videoUrl ||
+          status.video_url ||
+          status.url ||
+          status.output?.url ||
+          status.result?.url ||
+          status.data?.url;
+
+        if (videoUrl) {
+          showVideo(videoUrl);
+          setStatus("Your AI-generated video is ready!", 100);
+          return;
+        }
+
+        if (
+          state === "failed" ||
+          state === "error" ||
+          state === "cancelled"
+        ) {
+          throw new Error(
+            status.error ||
+            status.message ||
+            "Video generation failed."
+          );
+        }
+
+        const progress = Math.min(
+          95,
+          15 + Math.round((attempt / 90) * 80)
+        );
+
+        setStatus(
+          "Generating real AI video... Please wait (" + attempt + "/90)",
+          progress
+        );
       }
 
-      recorder.stop();
-      await stopped;
-
-      stream.getTracks().forEach(track => track.stop());
-
-      const blob = new Blob(chunks, { type: "video/webm" });
-
-      if (!blob.size) {
-        throw new Error("The browser did not produce a video file.");
-      }
-
-      if (renderedUrl) URL.revokeObjectURL(renderedUrl);
-
-      renderedUrl = URL.createObjectURL(blob);
-      preview.src = renderedUrl;
-      preview.style.display = "block";
-
-      download.href = renderedUrl;
-      download.download = "nova-video.webm";
-      download.hidden = false;
-
-      status.textContent = "Video rendered successfully. Download the WebM file below.";
+      throw new Error("Video generation is taking longer than expected. Check again later.");
 
     } catch (error) {
-      status.textContent = "Render error: " + error.message;
+      if (job !== activeJob) return;
+
+      console.error("NOVA Video Studio:", error);
+      setStatus("Video error: " + error.message, 0);
+
     } finally {
-      renderButton.disabled = scenes.length === 0;
-      generateButton.disabled = false;
+      if (job === activeJob) {
+        generateButton.disabled = false;
+        generateButton.textContent = "Generate Video";
+      }
     }
   });
+
+  clearButton?.addEventListener("click", () => {
+    activeJob++;
+
+    promptBox.value = "";
+    currentVideoUrl = "";
+
+    if (previewBox) previewBox.innerHTML = "";
+    if (downloadButton) downloadButton.style.display = "none";
+
+    setStatus("Ready to create a new video.", 0);
+
+    generateButton.disabled = false;
+    generateButton.textContent = "Generate Video";
+  });
+
+  setStatus("Ready to create real AI-generated videos.", 0);
+
 })();
 </script>
 
