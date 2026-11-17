@@ -207,7 +207,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
       </div>
     </section>
   </div>
-    <section class="hero" id="hero">
+
+  <section class="hero" id="hero">
     <div class="eyebrow">YOUR CREATIVE UNIVERSE</div>
     <h1>Imagine it.<br><span class="gradient">Create it.</span></h1>
     <p class="subtitle">One place for ideas, stories, films, music, software and the things nobody has imagined yet.</p>
@@ -315,9 +316,7 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
     <p class="studio-status" id="developer-status">Ready for a development request.</p>
     <pre id="developer-output" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;color:var(--text);font:13px/1.65 ui-monospace,monospace;"></pre>
   </section>
-
-
-  <section class="studio nova-workspace" id="documents-studio" data-workspace="documents" hidden>
+    <section class="studio nova-workspace" id="documents-studio" data-workspace="documents" hidden>
     <div class="section-head"><h2>▤ NOVA Document Studio</h2><span class="muted">Write · Organize · Export</span></div>
     <label for="document-title">Document title</label>
     <input type="text" id="document-title" maxlength="120" placeholder="Untitled document">
@@ -327,23 +326,36 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
       <button class="primary" id="document-save" type="button">Save document</button>
       <button id="document-download" type="button">Download .txt</button>
     </div>
-    <p class="studio-status" id="document-status">Your document is saved in this browser with the selected project.</p>
+    <p class="studio-status" id="document-status">Your document is stored in this browser until you export it.</p>
   </section>
 
   <section class="studio nova-workspace" id="music-studio" data-workspace="music" hidden>
-    <div class="section-head"><h2>♫ NOVA Music Studio</h2><span class="muted">Concept · Lyrics · Production</span></div>
-    <p class="muted" style="line-height:1.7">Build a song project, organize lyrics and plan its production. Audio generation is not connected in this version.</p>
-    <label for="music-title">Song / project title</label>
+    <div class="section-head"><h2>♫ NOVA Music Studio</h2><span class="muted">Lyrics · Concepts · Production</span></div>
+    <label for="music-title">Song title</label>
     <input type="text" id="music-title" maxlength="120" placeholder="Untitled song">
-    <label for="music-brief">Song concept and sound direction</label>
-    <textarea id="music-brief" placeholder="Describe the mood, story, genre, language and sound..."></textarea>
-    <label for="music-lyrics">Lyrics / notes</label>
-    <textarea id="music-lyrics" style="min-height:220px" placeholder="Write lyrics or production notes here..."></textarea>
-    <div class="studio-actions"><button class="primary" id="music-save" type="button">Save music project</button></div>
-    <p class="studio-status" id="music-status">Your song notes are saved in this browser with the selected project.</p>
+    <label for="music-style">Music style</label>
+    <input type="text" id="music-style" maxlength="180" placeholder="Melodic rap, soft rock, trap...">
+    <label for="music-lyrics">Lyrics and notes</label>
+    <textarea id="music-lyrics" style="min-height:300px" placeholder="Write your lyrics, song ideas, hooks, verses and production notes..."></textarea>
+    <div class="studio-actions">
+      <button class="primary" id="music-save" type="button">Save song</button>
+      <button id="music-download" type="button">Download .txt</button>
+    </div>
+    <p class="studio-status" id="music-status">NOVA saves your writing and production notes. Audio generation is not enabled here.</p>
   </section>
 
-  <section class="section" id="project-library">
+  <section class="studio nova-workspace" id="apps-studio" data-workspace="apps" hidden>
+    <div class="section-head"><h2>⌘ NOVA App Builder</h2><span class="muted">Plan · Code · Build</span></div>
+    <label for="app-request">Describe the app or website you want to build</label>
+    <textarea id="app-request" maxlength="3000" style="min-height:150px" placeholder="Describe what the app should do, who will use it, and what features it needs..."></textarea>
+    <div class="studio-actions">
+      <button class="primary" id="app-build" type="button">Ask NOVA to build a plan</button>
+    </div>
+    <p class="studio-status" id="app-status">NOVA can create implementation plans and code proposals. It does not directly publish to GitHub.</p>
+    <pre id="app-output" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;color:var(--text);font:13px/1.65 ui-monospace,monospace;"></pre>
+  </section>
+
+  <section class="section" id="projects-section">
     <div class="section-head">
       <h2>Your projects</h2>
       <span class="muted" id="count">0 projects</span>
@@ -378,7 +390,6 @@ try {
 } catch {
   conversation = [];
 }
-  }
 
 const chat = document.createElement("section");
 chat.className = "section";
@@ -506,7 +517,9 @@ async function askNOVA(messages) {
     })
   });
 
-  const data = await response.json();
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error("The NOVA server returned an unreadable response (HTTP " + response.status + ")."); }
 
   if (!response.ok) {
     throw new Error(data.error || "Server error: " + response.status);
@@ -520,52 +533,68 @@ async function askNOVA(messages) {
 }
 
 createButton.addEventListener("click", async () => {
-  const prompt = idea.value.trim();
+  const promptText = idea.value.trim();
 
-  if (!prompt) {
+  if (!promptText) {
     idea.focus();
+    chatStatus.textContent = "Write a message before sending it to NOVA.";
+    return;
+  }
+  if (promptText.length > 4000) {
+    chatStatus.textContent = "Please shorten your message to 4,000 characters or fewer.";
     return;
   }
 
-  if (prompt.length > 4000) {
-    chatStatus.textContent = "Please shorten your message.";
-    return;
-  }
+  // Switch to the chat workspace before sending so the user can see progress and the reply.
+  if (window.NOVAWorkspace?.setView) window.NOVAWorkspace.setView("chat");
+  const responsePanel = document.getElementById("nova-response");
+  if (responsePanel) responsePanel.hidden = false;
+  const answerPanel = document.getElementById("nova-answer");
+  const answerState = document.getElementById("nova-state");
 
   createButton.disabled = true;
-  createButton.textContent = "Thinking...";
+  createButton.textContent = "Sending...";
   chatStatus.textContent = "NOVA is thinking...";
+  if (answerState) answerState.textContent = "Thinking";
+  if (answerPanel) answerPanel.textContent = "NOVA is preparing a response...";
 
-  conversation.push({ role: "user", content: prompt });
+  conversation.push({ role: "user", content: promptText });
   idea.value = "";
   saveConversation();
   renderConversation();
 
   try {
     const reply = await askNOVA(conversation);
-
     conversation.push({ role: "assistant", content: reply });
     conversation = conversation.slice(-12);
     saveConversation();
     renderConversation();
 
+    if (answerPanel) answerPanel.textContent = reply;
+    if (answerState) answerState.textContent = "Replied";
     chatStatus.textContent = "NOVA replied successfully.";
 
     const items = getProjects();
     items.push({
-      title: prompt.length > 42 ? prompt.slice(0, 42) + "…" : prompt,
-      prompt,
+      id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()),
+      type: "chat",
+      title: promptText.length > 42 ? promptText.slice(0, 42) + "…" : promptText,
+      prompt: promptText,
       response: reply,
-      createdAt: new Date().toISOString()
+      data: {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
-        saveProjects(items);
-    renderProjects();
-
+    saveProjects(items);
+    if (typeof window.renderProjects === "function") window.renderProjects();
   } catch (error) {
-    chatStatus.textContent = "Connection error: " + error.message;
+    const message = error?.message || "Unknown connection error.";
+    if (answerPanel) answerPanel.textContent = "I couldn't get a reply. " + message;
+    if (answerState) answerState.textContent = "Connection issue";
+    chatStatus.textContent = "Connection error: " + message;
   } finally {
     createButton.disabled = false;
-    createButton.textContent = "＋ New project";
+    createButton.textContent = "Send to NOVA";
   }
 });
 
@@ -757,7 +786,7 @@ renderProjects();
   console.log("NOVA Browser ID:", userId);
 
   const toggle = document.getElementById("nova-memory-toggle");
-    const windowBox = document.getElementById("nova-memory-window");
+  const windowBox = document.getElementById("nova-memory-window");
   const list = document.getElementById("nova-memory-list");
   const status = document.getElementById("nova-memory-status");
 
@@ -940,8 +969,7 @@ renderProjects();
       generateButton.disabled = false;
     }
   });
-
-  clearButton.addEventListener("click", () => {
+    clearButton.addEventListener("click", () => {
     scenes = [];
     drawScenes();
     if (renderedUrl) URL.revokeObjectURL(renderedUrl);
@@ -957,7 +985,7 @@ renderProjects();
       const image = new Image();
       image.onload = () => resolve(image);
       image.onerror = () => reject(new Error("A scene image could not be loaded."));
-            image.src = src;
+      image.src = src;
     });
   }
 
@@ -1137,7 +1165,7 @@ renderProjects();
     return "chat";
   }
   function currentProject(){ return readProjects().find(p => p.id === activeProjectId) || null; }
-    function updateActiveChip(){
+  function updateActiveChip(){
     const p = currentProject();
     $("active-project-chip").textContent = p ? (typeInfo[normalizeType(p)].label + " · " + p.title) : "No project selected";
   }
@@ -1149,42 +1177,18 @@ renderProjects();
     document.querySelectorAll("[data-nova-view]").forEach(b => b.classList.toggle("active", b.dataset.novaView === view));
     const ids = ["hero","composer","nova-response","image-studio","video-studio","developer-lab","documents-studio","music-studio","project-library","category-library"];
     ids.forEach(id => { const el = $(id); if(el) el.classList.add("nova-hidden"); });
-    const chatEl = document.querySelector("main.app > section.section#nova-response");
-    const chatBlock = document.querySelector("main.app > section.section#nova-response");
-    const conversationSection = document.querySelector("main.app > section.section#nova-response");
-    const chatPanel = document.querySelector("main.app > section.section#nova-response");
-    const chatSection = document.querySelector("main.app > section.section#nova-response");
-    const conversation = document.querySelector("main.app > section.section#nova-response");
-    const chatContainer = document.querySelector("main.app > section.section#nova-response");
-    const chatUI = document.querySelector("main.app > section.section#nova-response");
-    const chatMessagesSection = document.querySelector("main.app > section.section#nova-response");
-    const chatRoot = document.querySelector("main.app > section.section#nova-response");
-    const conversationRoot = document.querySelector("main.app > section.section#nova-response");
-    const chatDynamic = document.querySelector("main.app > section.section#nova-response");
-    const chatSectionDynamic = document.querySelector("main.app > section.section#nova-response");
-    const chatWrapper = document.querySelector("main.app > section.section#nova-response");
-    const chatHeader = document.querySelector("main.app > section.section#nova-response");
-    const chatMessages = document.querySelector("main.app > section.section#nova-response");
-    const chatArea = document.querySelector("main.app > section.section#nova-response");
-    const chatNode = document.querySelector("main.app > section.section#nova-response");
-    const chatConversation = document.querySelector("main.app > section.section#nova-response");
-    const chatElement = document.querySelector("main.app > section.section#nova-response");
-    const chatSectionEl = document.querySelector("main.app > section.section#nova-response");
-    const dynamicChat = document.querySelector("main.app > section.section#nova-response");
-    const chatPanelEl = document.querySelector("main.app > section.section#nova-response");
-    const chatView = document.querySelector("main.app > section.section#nova-response");
-    const chatTop = document.querySelector("main.app > section.section#nova-response");
-    const chatAfterComposer = document.querySelector("main.app > section.section#nova-response");
-    const chatSectionActual = document.querySelector("main.app > section.section#nova-response");
-    const chatByHeading = [...document.querySelectorAll("main.app > section.section")].find(el => el.querySelector("h2")?.textContent.includes("Your NOVA conversation"));
+    const chatByHeading = [...document.querySelectorAll("main.app > section.section")]
+      .find(el => el.querySelector("h2")?.textContent.includes("Your NOVA conversation"));
     chatByHeading?.classList.add("nova-hidden");
     if(view === "home"){
       ["hero","composer","project-library","category-library"].forEach(id => $(id)?.classList.remove("nova-hidden"));
       document.querySelectorAll(".tile").forEach(b => b.classList.remove("nova-hidden"));
       $("nova-response")?.classList.add("nova-hidden");
+      if ($("nova-response")) $("nova-response").hidden = true;
     } else if(view === "chat"){
       ["hero","composer"].forEach(id => $(id)?.classList.remove("nova-hidden"));
       $("nova-response")?.classList.remove("nova-hidden");
+      if ($("nova-response")) $("nova-response").hidden = false;
       chatByHeading?.classList.remove("nova-hidden");
     } else if(view === "image") $("image-studio").classList.remove("nova-hidden");
     else if(view === "video") $("video-studio").classList.remove("nova-hidden");
@@ -1210,7 +1214,7 @@ renderProjects();
     if(type === "video") $("video-prompt")?.focus();
     if(type === "apps") $("developer-request")?.focus();
   }
-    function updateProject(id, patch){
+  function updateProject(id, patch){
     const items = readProjects(); const i = items.findIndex(p => p.id === id);
     if(i < 0) return;
     items[i] = {...items[i], ...patch, updatedAt:new Date().toISOString()};
