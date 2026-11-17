@@ -2046,12 +2046,11 @@ renderProjects();
 
   const active = readProjects().find(p => p.id === activeProjectId);
 
-  if (active) {
-    loadProjectData(active);
-    setView(typeInfo[normalizeType(active)].view);
-  } else {
-    setView("home");
-  }
+if (active) {
+  loadProjectData(active);
+}
+
+setView("home");
 
   window.NOVAWorkspace = {
     setView,
