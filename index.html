@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +67,8 @@ textarea {
 }
 textarea::placeholder { color:#78849b; }
 .composer-bottom { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.composer-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.composer-buttons .studio-secondary{font-size:12px;padding:11px 13px}
 .hint { color:var(--muted); font-size:11px; }
 .primary {
   border:0; border-radius:13px; padding:12px 18px;
@@ -133,6 +134,37 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
   .hero { padding-top:65px; }
   .grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 }
+
+/* NOVA unified workspace layer */
+.nova-nav{display:flex;gap:7px;overflow-x:auto;padding:10px 0 15px;margin:0 0 8px;scrollbar-width:thin;border-bottom:1px solid var(--line)}
+.nav-item{flex:0 0 auto;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--muted);padding:10px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+.nav-item:hover,.nav-item.active{color:var(--text);background:#211e3b;border-color:#554b82}
+.workspace-topline{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:18px 0 5px}
+.workspace-topline h2{font-size:23px;margin:5px 0 0}
+.workspace-kicker{font-size:10px;letter-spacing:2px;color:var(--cyan);font-weight:800}
+.active-project-chip{font-size:11px;color:#c9c3ef;border:1px solid #554b82;background:#211e3b;padding:8px 11px;border-radius:30px;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nova-modal-backdrop{position:fixed;inset:0;z-index:10000;background:#050711d9;display:grid;place-items:center;padding:18px}
+.nova-modal-backdrop[hidden]{display:none}
+.nova-modal{position:relative;width:min(620px,100%);max-height:90vh;overflow:auto;padding:25px;border:1px solid #414b69;border-radius:22px;background:#111827;box-shadow:0 25px 90px #000b}
+.nova-modal h2{font-size:25px;margin:10px 0}
+.nova-modal p{line-height:1.6}
+.modal-close{position:absolute;right:15px;top:12px;border:0;background:transparent;color:var(--muted);font-size:28px}
+.project-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+.project-type-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;padding:16px;border:1px solid var(--line);border-radius:14px;background:#171f30;color:var(--text);font-size:22px}
+.project-type-grid button:hover{border-color:var(--accent);background:#211e3b}
+.project-type-grid b{font-size:13px}
+.project-type-grid small{font-size:11px;color:var(--muted)}
+.project-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.project-actions button{border:1px solid #454d69;border-radius:9px;padding:7px 10px;background:#202943;color:var(--text);font-size:11px;font-weight:700}
+.project-type-label{display:inline-block;margin-bottom:7px;color:var(--cyan);font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.project-card-title-row{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.project-card-title-row strong{margin:0}
+.nova-hidden{display:none!important}
+.nova-home-only{display:block}
+.nova-chat-only{display:block}
+button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:560px){.workspace-topline{align-items:start;flex-direction:column}.active-project-chip{max-width:100%}.project-type-grid{grid-template-columns:1fr 1fr}.nova-modal{padding:20px}.nav-item{padding:9px 10px}}
+
 </style>
 </head>
 <body>
@@ -142,19 +174,55 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
     <div class="status">FOUNDATION BUILD</div>
   </header>
 
-  <section class="hero">
+  <nav class="nova-nav" aria-label="Main navigation">
+    <button type="button" data-nova-view="home" class="nav-item active">⌂ <span>Home</span></button>
+    <button type="button" data-nova-view="chat" class="nav-item">✦ <span>AI Chat</span></button>
+    <button type="button" data-nova-view="image" class="nav-item">▧ <span>Image & Art</span></button>
+    <button type="button" data-nova-view="video" class="nav-item">▶ <span>Video Studio</span></button>
+    <button type="button" data-nova-view="apps" class="nav-item">⌘ <span>App Builder</span></button>
+    <button type="button" data-nova-view="documents" class="nav-item">▤ <span>Documents</span></button>
+    <button type="button" data-nova-view="music" class="nav-item">♫ <span>Music Studio</span></button>
+    <button type="button" data-nova-view="projects" class="nav-item">▣ <span>My Projects</span></button>
+  </nav>
+  <div class="workspace-topline">
+    <div>
+      <div class="workspace-kicker" id="workspace-kicker">YOUR CREATIVE WORKSPACE</div>
+      <h2 id="workspace-title">Home</h2>
+    </div>
+    <div class="active-project-chip" id="active-project-chip">No project selected</div>
+  </div>
+  <div class="nova-modal-backdrop" id="nova-project-modal" hidden>
+    <section class="nova-modal" role="dialog" aria-modal="true" aria-labelledby="nova-modal-title">
+      <button class="modal-close" id="nova-modal-close" type="button" aria-label="Close">×</button>
+      <div class="workspace-kicker">START SOMETHING NEW</div>
+      <h2 id="nova-modal-title">What are we creating?</h2>
+      <p class="muted">Choose a workspace. NOVA will open the right tools for that project.</p>
+      <div class="project-type-grid">
+        <button type="button" data-create-type="chat">✦<b>AI Chat</b><small>Ideas and research</small></button>
+        <button type="button" data-create-type="image">▧<b>Image & Art</b><small>Generate and edit images</small></button>
+        <button type="button" data-create-type="video">▶<b>Movies & Films</b><small>Scenes and video projects</small></button>
+        <button type="button" data-create-type="apps">⌘<b>Apps & Websites</b><small>Code and software</small></button>
+        <button type="button" data-create-type="documents">▤<b>Documents</b><small>Writing and presentations</small></button>
+        <button type="button" data-create-type="music">♫<b>Music & Audio</b><small>Lyrics and audio planning</small></button>
+      </div>
+    </section>
+  </div>
+    <section class="hero" id="hero">
     <div class="eyebrow">YOUR CREATIVE UNIVERSE</div>
     <h1>Imagine it.<br><span class="gradient">Create it.</span></h1>
     <p class="subtitle">One place for ideas, stories, films, music, software and the things nobody has imagined yet.</p>
   </section>
 
-  <section class="composer">
+  <section class="composer" id="composer">
     <textarea id="idea" placeholder="Tell NOVA what you want to create...
 
 Example: Invent and plan an original Nepali movie set in the Himalayas."></textarea>
     <div class="composer-bottom">
       <span class="hint">Describe your idea in your own words.</span>
-      <button class="primary" id="create">＋ New project</button>
+      <div class="composer-buttons">
+        <button class="studio-secondary" id="new-project-open" type="button">＋ New project</button>
+        <button class="primary" id="create" type="button">Send to NOVA</button>
+      </div>
     </div>
   </section>
 
@@ -168,7 +236,7 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
     </div>
   </section>
 
-  <section class="section">
+  <section class="section" id="category-library">
     <div class="section-head">
       <h2>What do you want to make?</h2>
       <span class="muted">Explore</span>
@@ -248,7 +316,34 @@ Example: Invent and plan an original Nepali movie set in the Himalayas."></texta
     <pre id="developer-output" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;color:var(--text);font:13px/1.65 ui-monospace,monospace;"></pre>
   </section>
 
-  <section class="section">
+
+  <section class="studio nova-workspace" id="documents-studio" data-workspace="documents" hidden>
+    <div class="section-head"><h2>▤ NOVA Document Studio</h2><span class="muted">Write · Organize · Export</span></div>
+    <label for="document-title">Document title</label>
+    <input type="text" id="document-title" maxlength="120" placeholder="Untitled document">
+    <label for="document-content">Your document</label>
+    <textarea id="document-content" style="min-height:300px" placeholder="Start writing, paste notes, or draft your document here..."></textarea>
+    <div class="studio-actions">
+      <button class="primary" id="document-save" type="button">Save document</button>
+      <button id="document-download" type="button">Download .txt</button>
+    </div>
+    <p class="studio-status" id="document-status">Your document is saved in this browser with the selected project.</p>
+  </section>
+
+  <section class="studio nova-workspace" id="music-studio" data-workspace="music" hidden>
+    <div class="section-head"><h2>♫ NOVA Music Studio</h2><span class="muted">Concept · Lyrics · Production</span></div>
+    <p class="muted" style="line-height:1.7">Build a song project, organize lyrics and plan its production. Audio generation is not connected in this version.</p>
+    <label for="music-title">Song / project title</label>
+    <input type="text" id="music-title" maxlength="120" placeholder="Untitled song">
+    <label for="music-brief">Song concept and sound direction</label>
+    <textarea id="music-brief" placeholder="Describe the mood, story, genre, language and sound..."></textarea>
+    <label for="music-lyrics">Lyrics / notes</label>
+    <textarea id="music-lyrics" style="min-height:220px" placeholder="Write lyrics or production notes here..."></textarea>
+    <div class="studio-actions"><button class="primary" id="music-save" type="button">Save music project</button></div>
+    <p class="studio-status" id="music-status">Your song notes are saved in this browser with the selected project.</p>
+  </section>
+
+  <section class="section" id="project-library">
     <div class="section-head">
       <h2>Your projects</h2>
       <span class="muted" id="count">0 projects</span>
@@ -283,6 +378,7 @@ try {
 } catch {
   conversation = [];
 }
+  }
 
 const chat = document.createElement("section");
 chat.className = "section";
@@ -462,8 +558,7 @@ createButton.addEventListener("click", async () => {
       response: reply,
       createdAt: new Date().toISOString()
     });
-
-    saveProjects(items);
+        saveProjects(items);
     renderProjects();
 
   } catch (error) {
@@ -662,7 +757,7 @@ renderProjects();
   console.log("NOVA Browser ID:", userId);
 
   const toggle = document.getElementById("nova-memory-toggle");
-  const windowBox = document.getElementById("nova-memory-window");
+    const windowBox = document.getElementById("nova-memory-window");
   const list = document.getElementById("nova-memory-list");
   const status = document.getElementById("nova-memory-status");
 
@@ -862,7 +957,7 @@ renderProjects();
       const image = new Image();
       image.onload = () => resolve(image);
       image.onerror = () => reject(new Error("A scene image could not be loaded."));
-      image.src = src;
+            image.src = src;
     });
   }
 
@@ -1007,6 +1102,190 @@ renderProjects();
       button.disabled = false;
     }
   });
+})();
+</script>
+
+
+<script>
+/* NOVA Project Engine: workspace routing, typed projects and local persistence. */
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = "nova_projects_v1";
+  const ACTIVE_KEY = "nova_active_project_v1";
+  const typeInfo = {
+    chat:{label:"AI Chat",view:"chat",icon:"✦"},
+    image:{label:"Image & Art",view:"image",icon:"▧"},
+    video:{label:"Movies & Films",view:"video",icon:"▶"},
+    apps:{label:"Apps & Websites",view:"apps",icon:"⌘"},
+    documents:{label:"Documents",view:"documents",icon:"▤"},
+    music:{label:"Music & Audio",view:"music",icon:"♫"}
+  };
+  let activeProjectId = localStorage.getItem(ACTIVE_KEY) || "";
+  let activeView = "home";
+
+  function readProjects(){
+    try {
+      const items = JSON.parse(localStorage.getItem(KEY) || "[]");
+      return Array.isArray(items) ? items : [];
+    } catch { return []; }
+  }
+  function writeProjects(items){ localStorage.setItem(KEY, JSON.stringify(items)); }
+  function normalizeType(item){
+    if(item.type && typeInfo[item.type]) return item.type;
+    const title = String(item.title || "").toLowerCase();
+    if(title.startsWith("development:")) return "apps";
+    return "chat";
+  }
+  function currentProject(){ return readProjects().find(p => p.id === activeProjectId) || null; }
+    function updateActiveChip(){
+    const p = currentProject();
+    $("active-project-chip").textContent = p ? (typeInfo[normalizeType(p)].label + " · " + p.title) : "No project selected";
+  }
+  function setView(view){
+    activeView = view;
+    const titleMap = {home:"Home",chat:"AI Chat",image:"Image & Art",video:"Video Studio",apps:"App Builder",documents:"Documents",music:"Music Studio",projects:"My Projects"};
+    $("workspace-title").textContent = titleMap[view] || "Workspace";
+    $("workspace-kicker").textContent = view === "home" ? "YOUR CREATIVE WORKSPACE" : "NOVA WORKSPACE";
+    document.querySelectorAll("[data-nova-view]").forEach(b => b.classList.toggle("active", b.dataset.novaView === view));
+    const ids = ["hero","composer","nova-response","image-studio","video-studio","developer-lab","documents-studio","music-studio","project-library","category-library"];
+    ids.forEach(id => { const el = $(id); if(el) el.classList.add("nova-hidden"); });
+    const chatEl = document.querySelector("main.app > section.section#nova-response");
+    const chatBlock = document.querySelector("main.app > section.section#nova-response");
+    const conversationSection = document.querySelector("main.app > section.section#nova-response");
+    const chatPanel = document.querySelector("main.app > section.section#nova-response");
+    const chatSection = document.querySelector("main.app > section.section#nova-response");
+    const conversation = document.querySelector("main.app > section.section#nova-response");
+    const chatContainer = document.querySelector("main.app > section.section#nova-response");
+    const chatUI = document.querySelector("main.app > section.section#nova-response");
+    const chatMessagesSection = document.querySelector("main.app > section.section#nova-response");
+    const chatRoot = document.querySelector("main.app > section.section#nova-response");
+    const conversationRoot = document.querySelector("main.app > section.section#nova-response");
+    const chatDynamic = document.querySelector("main.app > section.section#nova-response");
+    const chatSectionDynamic = document.querySelector("main.app > section.section#nova-response");
+    const chatWrapper = document.querySelector("main.app > section.section#nova-response");
+    const chatHeader = document.querySelector("main.app > section.section#nova-response");
+    const chatMessages = document.querySelector("main.app > section.section#nova-response");
+    const chatArea = document.querySelector("main.app > section.section#nova-response");
+    const chatNode = document.querySelector("main.app > section.section#nova-response");
+    const chatConversation = document.querySelector("main.app > section.section#nova-response");
+    const chatElement = document.querySelector("main.app > section.section#nova-response");
+    const chatSectionEl = document.querySelector("main.app > section.section#nova-response");
+    const dynamicChat = document.querySelector("main.app > section.section#nova-response");
+    const chatPanelEl = document.querySelector("main.app > section.section#nova-response");
+    const chatView = document.querySelector("main.app > section.section#nova-response");
+    const chatTop = document.querySelector("main.app > section.section#nova-response");
+    const chatAfterComposer = document.querySelector("main.app > section.section#nova-response");
+    const chatSectionActual = document.querySelector("main.app > section.section#nova-response");
+    const chatByHeading = [...document.querySelectorAll("main.app > section.section")].find(el => el.querySelector("h2")?.textContent.includes("Your NOVA conversation"));
+    chatByHeading?.classList.add("nova-hidden");
+    if(view === "home"){
+      ["hero","composer","project-library","category-library"].forEach(id => $(id)?.classList.remove("nova-hidden"));
+      document.querySelectorAll(".tile").forEach(b => b.classList.remove("nova-hidden"));
+      $("nova-response")?.classList.add("nova-hidden");
+    } else if(view === "chat"){
+      ["hero","composer"].forEach(id => $(id)?.classList.remove("nova-hidden"));
+      $("nova-response")?.classList.remove("nova-hidden");
+      chatByHeading?.classList.remove("nova-hidden");
+    } else if(view === "image") $("image-studio").classList.remove("nova-hidden");
+    else if(view === "video") $("video-studio").classList.remove("nova-hidden");
+    else if(view === "apps") $("developer-lab").classList.remove("nova-hidden");
+    else if(view === "documents") $("documents-studio").classList.remove("nova-hidden");
+    else if(view === "music") $("music-studio").classList.remove("nova-hidden");
+    else if(view === "projects") $("project-library").classList.remove("nova-hidden");
+    updateActiveChip();
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+  function openModal(){ $("nova-project-modal").hidden = false; }
+  function closeModal(){ $("nova-project-modal").hidden = true; }
+  function createProject(type){
+    const info = typeInfo[type] || typeInfo.chat;
+    const title = prompt("Name your " + info.label + " project:", "Untitled " + info.label);
+    if(title === null) return;
+    const project = {id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()), type, title:title.trim() || ("Untitled " + info.label), prompt:"", response:"", data:{}, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()};
+    const items = readProjects(); items.push(project); writeProjects(items);
+    activeProjectId = project.id; localStorage.setItem(ACTIVE_KEY, activeProjectId);
+    closeModal(); renderLibrary(); setView(info.view);
+    if(type === "chat") $("idea")?.focus();
+    if(type === "image") $("image-prompt")?.focus();
+    if(type === "video") $("video-prompt")?.focus();
+    if(type === "apps") $("developer-request")?.focus();
+  }
+    function updateProject(id, patch){
+    const items = readProjects(); const i = items.findIndex(p => p.id === id);
+    if(i < 0) return;
+    items[i] = {...items[i], ...patch, updatedAt:new Date().toISOString()};
+    writeProjects(items); renderLibrary(); updateActiveChip();
+  }
+  function renderLibrary(){
+    const host = $("projects"); if(!host) return;
+    let items = readProjects();
+    if(items.some(p=>!p.id)){items=items.map(p=>({...p,id:p.id||(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),type:normalizeType(p),data:p.data||{}}));writeProjects(items);}
+    $("count").textContent = items.length + (items.length === 1 ? " project" : " projects");
+    host.replaceChildren();
+    if(!items.length){ const empty=document.createElement("div"); empty.className="empty"; empty.textContent="No projects yet. Choose New Project to create your first workspace."; host.append(empty); return; }
+    items.slice().reverse().forEach(p=>{
+      const type=normalizeType(p), info=typeInfo[type];
+      const card=document.createElement("article"); card.className="project";
+      const row=document.createElement("div"); row.className="project-card-title-row";
+      const title=document.createElement("strong"); title.textContent=p.title || "Untitled project";
+      const label=document.createElement("span"); label.className="project-type-label"; label.textContent=info.icon+" "+info.label;
+      row.append(title,label);
+      const desc=document.createElement("p"); desc.textContent=p.prompt || p.data?.summary || "Workspace ready — open this project to continue.";
+      const actions=document.createElement("div"); actions.className="project-actions";
+      const open=document.createElement("button"); open.textContent="Open project"; open.addEventListener("click",()=>{activeProjectId=p.id;localStorage.setItem(ACTIVE_KEY,p.id);setView(info.view);loadProjectData(p);});
+      const rename=document.createElement("button"); rename.textContent="Rename"; rename.addEventListener("click",()=>{const n=prompt("Rename project:",p.title);if(n===null||!n.trim())return;updateProject(p.id,{title:n.trim()});});
+      const del=document.createElement("button"); del.textContent="Delete"; del.addEventListener("click",()=>{if(!confirm("Delete this project from this browser?"))return;const next=readProjects().filter(x=>x.id!==p.id);writeProjects(next);if(activeProjectId===p.id){activeProjectId="";localStorage.removeItem(ACTIVE_KEY);}renderLibrary();updateActiveChip();});
+      actions.append(open,rename,del); card.append(row,desc,actions); host.append(card);
+    });
+    updateActiveChip();
+  }
+  function loadProjectData(p){
+    if(!p) return;
+    const d=p.data || {};
+    if(normalizeType(p)==="documents"){ $("document-title").value=d.title||p.title||""; $("document-content").value=d.content||""; }
+    if(normalizeType(p)==="music"){ $("music-title").value=d.title||p.title||""; $("music-brief").value=d.brief||""; $("music-lyrics").value=d.lyrics||""; }
+    if(normalizeType(p)==="image" && d.prompt) $("image-prompt").value=d.prompt;
+    if(normalizeType(p)==="video" && d.prompt) $("video-prompt").value=d.prompt;
+    if(normalizeType(p)==="apps" && d.request) $("developer-request").value=d.request;
+  }
+  function saveWorkspaceData(type,data,statusId){
+    const p=currentProject();
+    if(!p){ if(statusId) $(statusId).textContent="Create or open a project first. Your content has not been attached to a project."; return; }
+    updateProject(p.id,{data:{...(p.data||{}),...data}});
+    if(statusId) $(statusId).textContent="Saved to “"+p.title+"” in this browser.";
+  }
+  document.querySelectorAll("[data-nova-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.novaView)));
+  $("new-project-open").addEventListener("click",openModal);
+  $("nova-modal-close").addEventListener("click",closeModal);
+  $("nova-project-modal").addEventListener("click",e=>{if(e.target===$("nova-project-modal"))closeModal();});
+  document.querySelectorAll("[data-create-type]").forEach(b=>b.addEventListener("click",()=>createProject(b.dataset.createType)));
+  document.querySelectorAll(".tile[data-prompt]").forEach(b=>b.addEventListener("click",e=>{
+    e.preventDefault();e.stopImmediatePropagation();
+    const mapping = b.querySelector("strong")?.textContent.toLowerCase() || "";
+    const type = mapping.includes("image") ? "image" : mapping.includes("movie") ? "video" : mapping.includes("music") ? "music" : mapping.includes("app") ? "apps" : mapping.includes("document") ? "documents" : "chat";
+    createProject(type);
+  },true));
+  $("document-save").addEventListener("click",()=>saveWorkspaceData("documents",{title:$("document-title").value.trim(),content:$("document-content").value},"document-status"));
+  $("document-download").addEventListener("click",()=>{
+    const blob=new Blob([$("document-content").value],{type:"text/plain;charset=utf-8"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(($("document-title").value||"nova-document").replace(/[^\w-]+/g,"-"))+".txt";a.click();URL.revokeObjectURL(url);
+  });
+  $("music-save").addEventListener("click",()=>saveWorkspaceData("music",{title:$("music-title").value.trim(),brief:$("music-brief").value,lyrics:$("music-lyrics").value},"music-status"));
+  ["image-prompt","video-prompt","developer-request"].forEach(id=>$(id)?.addEventListener("change",()=>{
+    const p=currentProject(); if(!p)return;
+    const type=normalizeType(p);const field=type==="image"?"prompt":type==="video"?"prompt":"request";
+    if(type==="image"||type==="video"||type==="apps") saveWorkspaceData(type,{[field]:$(id).value});
+  }));
+  // New projects are typed workspaces. Legacy chat submissions remain chat projects.
+  const originalCreate = $("create");
+  // Keep legacy render function in sync with the richer project library.
+  window.renderProjects = renderLibrary;
+  const legacyProjects=readProjects().map(p=>({...p,id:p.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random()),type:normalizeType(p),data:p.data||{}}));writeProjects(legacyProjects);
+  renderLibrary();
+  const active=readProjects().find(p=>p.id===activeProjectId);
+  if(active){loadProjectData(active);setView(typeInfo[normalizeType(active)].view);}
+  else setView("home");
+  window.NOVAWorkspace={setView,openNewProject:openModal,renderProjects:renderLibrary};
 })();
 </script>
 
