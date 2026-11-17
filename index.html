@@ -106,6 +106,28 @@ h2 { font-size:17px; margin:0; }
   padding:13px; color:#c8c1eb; font-size:12px; line-height:1.6;
 }
 footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
+
+.studio {
+  margin-top:34px; padding:18px; border:1px solid #39415c; border-radius:20px;
+  background:linear-gradient(145deg,#171d31,#101624); box-shadow:0 18px 55px #0004;
+}
+.studio label { display:block; color:var(--muted); font-size:12px; margin:13px 0 7px; }
+.studio input[type="text"], .studio textarea {
+  width:100%; border:1px solid var(--line); border-radius:12px; padding:12px;
+  color:var(--text); background:#0c1220; outline:none;
+}
+.studio textarea { min-height:90px; }
+.studio-actions { display:flex; gap:9px; flex-wrap:wrap; margin-top:12px; }
+.studio-actions button, .studio-secondary {
+  border:1px solid #454d69; border-radius:11px; padding:10px 13px;
+  color:var(--text); background:#202943; font-weight:700;
+}
+.studio-actions button.primary { color:#090b16; border:0; }
+.studio-preview { display:block; width:100%; max-height:440px; object-fit:contain;
+  margin-top:14px; border-radius:13px; background:#080b14; }
+.studio-status { color:var(--muted); font-size:12px; line-height:1.5; margin-top:10px; }
+.studio-file { max-width:100%; color:var(--muted); font-size:12px; }
+
 @media(min-width:650px) {
   .app { padding:25px 28px 60px; }
   .hero { padding-top:65px; }
@@ -127,7 +149,9 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
   </section>
 
   <section class="composer">
-    <textarea id="idea" placeholder="Tell NOVA what you want to create...&#10;&#10;Example: Invent and plan an original Nepali movie set in the Himalayas."></textarea>
+    <textarea id="idea" placeholder="Tell NOVA what you want to create...
+
+Example: Invent and plan an original Nepali movie set in the Himalayas."></textarea>
     <div class="composer-bottom">
       <span class="hint">Describe your idea in your own words.</span>
       <button class="primary" id="create">＋ New project</button>
@@ -143,7 +167,6 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
       <p id="nova-answer" style="white-space:pre-wrap;color:var(--text);font-size:14px;line-height:1.7"></p>
     </div>
   </section>
-
 
   <section class="section">
     <div class="section-head">
@@ -172,6 +195,33 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
     </div>
   </section>
 
+  <section class="studio" id="image-studio">
+    <div class="section-head">
+      <h2>🎨 NOVA Image Studio</h2>
+      <span class="muted">Generate · Edit · Export</span>
+    </div>
+    <label for="image-prompt">Describe the image you want, or explain how to edit your upload</label>
+    <textarea id="image-prompt" maxlength="1800" placeholder="Example: A cinematic photograph of a quiet Himalayan village at sunrise, natural colors, realistic details..."></textarea>
+    <label for="image-upload">Upload an image to edit (optional)</label>
+    <input class="studio-file" id="image-upload" type="file" accept="image/png,image/jpeg,image/webp">
+    <img id="image-source-preview" class="studio-preview" alt="Image selected for editing" hidden>
+    <div class="studio-actions">
+      <button class="primary" id="image-generate">Generate image</button>
+      <button id="image-edit">Edit uploaded image</button>
+      <button id="image-download" disabled>Download result</button>
+    </div>
+    <p class="studio-status" id="image-status">Ready. Image generation uses NOVA's connected Cloudflare AI model. Editing requires an uploaded image.</p>
+    <img id="image-result" class="studio-preview" alt="NOVA generated image" hidden>
+  </section>
+
+  <section class="studio" id="video-studio">
+    <div class="section-head">
+      <h2>🎬 NOVA Video Studio</h2>
+      <span class="muted">Coming next</span>
+    </div>
+    <p class="muted" style="line-height:1.7;margin:0;">The next engine will create short scenes and assemble them into longer projects. Paid video generation is not enabled, so this panel will not start billable jobs.</p>
+  </section>
+
   <section class="section">
     <div class="section-head">
       <h2>Your projects</h2>
@@ -183,15 +233,13 @@ footer { text-align:center; color:#65718a; font-size:11px; padding:35px 0 5px; }
   </section>
 
   <div class="notice">
-    <strong>Development status:</strong> This is NOVA's first interface build. Projects are saved in this browser. The AI reasoning, generation and autonomous building engines still need to be connected.
+    <strong>Development status:</strong> Chat, memory and image generation/editing are connected through the NOVA Worker. Projects are currently saved in this browser.
   </div>
 
   <footer>NOVA · THINK · BUILD · CREATE · IMPROVE</footer>
 </main>
 
 <script>
-
-
 const idea = document.getElementById("idea");
 const projects = document.getElementById("projects");
 const count = document.getElementById("count");
@@ -204,35 +252,28 @@ const conversationKey = "nova_conversation_v1";
 let conversation = [];
 
 try {
-  conversation = JSON.parse(
-    localStorage.getItem(conversationKey) || "[]"
-  );
+  conversation = JSON.parse(localStorage.getItem(conversationKey) || "[]");
   if (!Array.isArray(conversation)) conversation = [];
 } catch {
   conversation = [];
 }
 
-// Build the chat interface.
 const chat = document.createElement("section");
 chat.className = "section";
 chat.innerHTML = `
   <div class="section-head">
     <h2>Your NOVA conversation</h2>
-    <button id="new-chat" class="primary" type="button">
-      + New Chat
-    </button>
+    <button id="new-chat" class="primary" type="button">+ New Chat</button>
   </div>
   <div id="chat-messages" class="project-list"></div>
   <p id="chat-status" class="muted">Your conversation is ready.</p>
 `;
-
 document.querySelector(".composer").after(chat);
 
 const chatMessages = document.getElementById("chat-messages");
 const chatStatus = document.getElementById("chat-status");
 const newChatButton = document.getElementById("new-chat");
 
-// Add chat styling.
 const chatStyle = document.createElement("style");
 chatStyle.textContent = `
   #chat-messages { gap: 12px; }
@@ -259,18 +300,12 @@ chatStyle.textContent = `
     line-height: 1.7;
     font-size: 14px;
   }
-  #new-chat {
-    padding: 9px 12px;
-    font-size: 12px;
-  }
+  #new-chat { padding: 9px 12px; font-size: 12px; }
 `;
 document.head.appendChild(chatStyle);
 
 function saveConversation() {
-  localStorage.setItem(
-    conversationKey,
-    JSON.stringify(conversation)
-  );
+  localStorage.setItem(conversationKey, JSON.stringify(conversation));
 }
 
 function renderConversation() {
@@ -278,13 +313,11 @@ function renderConversation() {
 
   conversation.forEach(message => {
     const card = document.createElement("div");
-    card.className =
-      "chat-message " +
+    card.className = "chat-message " +
       (message.role === "user" ? "user" : "assistant");
 
     const heading = document.createElement("strong");
-    heading.textContent =
-      message.role === "user" ? "YOU" : "NOVA";
+    heading.textContent = message.role === "user" ? "YOU" : "NOVA";
 
     const content = document.createElement("p");
     content.textContent = message.content;
@@ -296,9 +329,7 @@ function renderConversation() {
 
 function getProjects() {
   try {
-    return JSON.parse(
-      localStorage.getItem(storageKey) || "[]"
-    );
+    return JSON.parse(localStorage.getItem(storageKey) || "[]");
   } catch {
     return [];
   }
@@ -310,17 +341,13 @@ function saveProjects(items) {
 
 function renderProjects() {
   const items = getProjects();
-
-  count.textContent =
-    items.length + (items.length === 1 ? " project" : " projects");
-
+  count.textContent = items.length + (items.length === 1 ? " project" : " projects");
   projects.replaceChildren();
 
   if (!items.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent =
-      "Your creative workspace is ready. Start your first project above.";
+    empty.textContent = "Your creative workspace is ready. Start your first project above.";
     projects.appendChild(empty);
     return;
   }
@@ -339,22 +366,22 @@ function renderProjects() {
     projects.appendChild(card);
   });
 }
+
 let NOVA_USER_ID = localStorage.getItem("nova_user_id");
 
 if (!NOVA_USER_ID) {
   NOVA_USER_ID = crypto.randomUUID();
   localStorage.setItem("nova_user_id", NOVA_USER_ID);
 }
+
 async function askNOVA(messages) {
   const response = await fetch(NOVA_API, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-  messages: messages.slice(-12),
-  userId: NOVA_USER_ID
-})
+      messages: messages.slice(-12),
+      userId: NOVA_USER_ID
+    })
   });
 
   const data = await response.json();
@@ -387,11 +414,7 @@ createButton.addEventListener("click", async () => {
   createButton.textContent = "Thinking...";
   chatStatus.textContent = "NOVA is thinking...";
 
-  conversation.push({
-    role: "user",
-    content: prompt
-  });
-
+  conversation.push({ role: "user", content: prompt });
   idea.value = "";
   saveConversation();
   renderConversation();
@@ -399,11 +422,7 @@ createButton.addEventListener("click", async () => {
   try {
     const reply = await askNOVA(conversation);
 
-    conversation.push({
-      role: "assistant",
-      content: reply
-    });
-
+    conversation.push({ role: "assistant", content: reply });
     conversation = conversation.slice(-12);
     saveConversation();
     renderConversation();
@@ -412,9 +431,7 @@ createButton.addEventListener("click", async () => {
 
     const items = getProjects();
     items.push({
-      title: prompt.length > 42
-        ? prompt.slice(0, 42) + "…"
-        : prompt,
+      title: prompt.length > 42 ? prompt.slice(0, 42) + "…" : prompt,
       prompt,
       response: reply,
       createdAt: new Date().toISOString()
@@ -450,9 +467,155 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 
 renderConversation();
 renderProjects();
-
 </script>
-  
+
+<script>
+(() => {
+  const API = "https://nova-ai-brain.successdahal75.workers.dev";
+  const userId = localStorage.getItem("nova_user_id");
+  const promptBox = document.getElementById("image-prompt");
+  const upload = document.getElementById("image-upload");
+  const sourcePreview = document.getElementById("image-source-preview");
+  const resultPreview = document.getElementById("image-result");
+  const status = document.getElementById("image-status");
+  const generateButton = document.getElementById("image-generate");
+  const editButton = document.getElementById("image-edit");
+  const downloadButton = document.getElementById("image-download");
+
+  let uploadedImageData = null;
+  let resultImageData = null;
+
+  function resizeImage(file) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      image.onload = () => {
+        const scale = Math.min(1, 512 / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(objectUrl);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Could not read that image."));
+      };
+
+      image.src = objectUrl;
+    });
+  }
+
+  upload.addEventListener("change", async () => {
+    const file = upload.files && upload.files[0];
+    uploadedImageData = null;
+    sourcePreview.hidden = true;
+
+    if (!file) return;
+
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      status.textContent = "Choose a PNG, JPEG or WebP image.";
+      upload.value = "";
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      status.textContent = "Please choose an image smaller than 3 MB.";
+      upload.value = "";
+      return;
+    }
+
+    try {
+      uploadedImageData = await resizeImage(file);
+      sourcePreview.src = uploadedImageData;
+      sourcePreview.hidden = false;
+      status.textContent = "Image ready for editing. Describe the changes above.";
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  });
+
+  async function runImage(action) {
+    const prompt = promptBox.value.trim();
+
+    if (!prompt) {
+      status.textContent = "Write a description first.";
+      promptBox.focus();
+      return;
+    }
+
+    if (action === "edit_image" && !uploadedImageData) {
+      status.textContent = "Upload an image before choosing Edit uploaded image.";
+      return;
+    }
+
+    generateButton.disabled = true;
+    editButton.disabled = true;
+    downloadButton.disabled = true;
+
+    status.textContent = action === "edit_image"
+      ? "NOVA is editing your image..."
+      : "NOVA is generating your image...";
+
+    resultPreview.hidden = true;
+
+    try {
+      const response = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          userId,
+          prompt,
+          ...(action === "edit_image" ? { imageData: uploadedImageData } : {})
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Image request failed.");
+      }
+
+      if (!data.imageData) {
+        throw new Error("The image service returned no image.");
+      }
+
+      resultImageData = data.imageData;
+      resultPreview.src = resultImageData;
+      resultPreview.hidden = false;
+      downloadButton.disabled = false;
+      status.textContent = "Finished. Your image is ready to download.";
+
+    } catch (error) {
+      status.textContent = "Image error: " + error.message;
+    } finally {
+      generateButton.disabled = false;
+      editButton.disabled = false;
+    }
+  }
+
+  generateButton.addEventListener("click", () => runImage("generate_image"));
+  editButton.addEventListener("click", () => runImage("edit_image"));
+
+  downloadButton.addEventListener("click", () => {
+    if (!resultImageData) return;
+
+    const link = document.createElement("a");
+    link.href = resultImageData;
+    link.download = "nova-image.png";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  });
+})();
+</script>
+
 <div id="nova-memory-panel" style="position:fixed;bottom:18px;right:18px;z-index:9999;font-family:Arial,sans-serif;">
   <button id="nova-memory-toggle" style="background:#7657ff;color:white;border:0;border-radius:12px;padding:13px 18px;font-weight:bold;">
     🧠 NOVA Memory
@@ -560,6 +723,7 @@ renderProjects();
       });
 
       status.textContent = data.memories.length + " memories saved.";
+
     } catch (error) {
       status.textContent = "Error: " + error.message;
     }
