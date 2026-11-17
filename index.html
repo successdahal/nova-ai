@@ -1220,11 +1220,14 @@ renderProjects();
   }
 
 } finally {
-      if (job === activeJob) {
-        generateButton.disabled = false;
-        generateButton.textContent = "Generate Video";
-      }
+  if (job === activeJob) {
+    generateButton.disabled = false;
+
+    if (generateButton.textContent !== "Retry Video") {
+      generateButton.textContent = "Generate AI Video";
     }
+  }
+}
   });
 
   clearButton?.addEventListener("click", () => {
