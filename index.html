@@ -1197,13 +1197,29 @@ renderProjects();
 
       throw new Error("Video generation is taking longer than expected. Check again later.");
 
-    } catch (error) {
-      if (job !== activeJob) return;
+} catch (error) {
+  if (job !== activeJob) return;
 
-      console.error("NOVA Video Studio:", error);
-      setStatus("Video error: " + error.message, 0);
+  console.error("NOVA Video Studio:", error);
 
-    } finally {
+  const message = error.message || "Unknown error";
+
+  if (
+    message.toLowerCase().includes("queue is full") ||
+    message.toLowerCase().includes("temporarily unavailable")
+  ) {
+    setStatus(
+      "Agnes AI is busy right now. Your prompt is safe. Please try again shortly.",
+      0
+    );
+
+    generateButton.textContent = "Retry Video";
+  } else {
+    setStatus("Video error: " + message, 0);
+    generateButton.textContent = "Try Again";
+  }
+
+} finally {
       if (job === activeJob) {
         generateButton.disabled = false;
         generateButton.textContent = "Generate Video";
