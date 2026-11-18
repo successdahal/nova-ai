@@ -817,11 +817,11 @@ renderProjects();
       return;
     }
 
-    if (file.size > 3 * 1024 * 1024) {
-      status.textContent = "Please choose an image smaller than 3 MB.";
-      upload.value = "";
-      return;
-    }
+if (file.size > 25 * 1024 * 1024) {
+  status.textContent = "Please choose an image smaller than 25 MB.";
+  upload.value = "";
+  return;
+}
 
     try {
       uploadedImageData = await resizeImage(file);
