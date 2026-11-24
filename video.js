@@ -128,12 +128,18 @@
           h("div", { class: "card stack", style: { position: "sticky", top: "76px" } },
             h("h2", {}, "Production"),
             this.bar, this.statusEl, this.stepsEl,
-            h("div", { class: "small faint" }, SA.engineHelp())
+            (this.helpEl = h("div", { class: "small faint" }, SA.engineHelp()))
           )
         )
       );
       this.renderSteps();
       this.renderResult();
+      const help = () => {
+        this.helpEl.textContent = SA.engineHelp();
+        this.onMusicChoice();
+      };
+      SA.on("credits", help);
+      SA.on("auth", help);
       const save = SA.debounce(() => this.project && this.saveFilm({ story: this.story.value, options: this.optionsFromUI() }), 800);
       this.story.addEventListener("input", save);
       [this.length, this.ratio, this.style, this.engineSel, this.narration, this.music, this.consistent, this.subs, this.keepSound].forEach(i => i.addEventListener("change", save));
@@ -158,7 +164,8 @@
       }
       if (this.music.value === "ai") {
         const ready = SA.readyEngines("music");
-        this.musicLabel.textContent = ready.length ? "Composed by " + ready[0].label.split(" —")[0] : "AI music needs a premium engine — the film will be rendered without music.";
+        const cost = ready.length ? SA.creditCost(ready[0].id, 1) : 0;
+        this.musicLabel.textContent = ready.length ? `Composed by ${ready[0].label.split(" —")[0]}${cost ? ` (${cost} Pro credits)` : ""}` : "AI soundtracks use Pro credits (free account needed). Pick a track from your library, or the video is made without music.";
       }
       if (this.music.value === "none") this.musicLabel.textContent = "";
     },
@@ -222,12 +229,14 @@
         if (!this.film().scenes?.length) await this.planFilm(story, o, eng);
         else this.step("plan", "done", this.film().scenes.length + " scenes (kept)");
         this.checkCancel();
+        if (!(await this.fitAllowance(eng))) throw new Error("Stopped.");
         await this.castCharacters(o, eng);
         this.checkCancel();
         await this.generateClips(o, eng);
         this.checkCancel();
         await this.renderFilm({ fromAutopilot: true });
         this.progress(1, "Your video is ready! 🎉");
+        SA.refreshCredits();
         SA.history.add({ kind: "video", title: "Created video: " + (this.film().title || story.slice(0, 60)), projectId: this.project.id });
         if (document.visibilityState !== "visible") toast("Your video is ready!", "good");
       } catch (e) {
@@ -284,6 +293,40 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
       const total = scenes.reduce((n, s) => n + s.seconds, 0);
       this.step("plan", "done", `“${plan.title || "Untitled"}” — ${scenes.length} shots, ~${total}s`);
       this.progress(0.1);
+    },
+
+    /** For Pro engines, make sure the customer has enough credits before anything is generated. */
+    async fitAllowance(eng) {
+      if (eng.tier !== "premium") return true;
+      const c = await SA.refreshCredits();
+      if (c?.owner) return true;
+      const scenes = this.film().scenes.filter(s => !(s.clipStatus === "completed" && s.clipUrl));
+      const perSec = SA.creditCost(eng.id, 1);
+      const need = scenes.reduce((n, s) => n + (s.seconds || 6), 0) * perSec;
+      const have = c?.balance ?? 0;
+      if (need <= have) return true;
+      const free = SA.readyEngines("video").find(x => x.tier === "free");
+      const choice = await SA.modal({
+        title: "Pro credits needed",
+        body: `This video needs about ${need} Pro credits with ${eng.label.split(" (")[0]}, and you have ${have}.`,
+        actions: [
+          { label: "Cancel", value: null },
+          free ? { label: "Use the free engine instead", value: "free" } : null,
+          { label: "⚡ Buy credits", kind: "primary", value: "buy" }
+        ].filter(Boolean),
+        dismissable: false
+      });
+      if (choice === "buy") {
+        SA.buyCredits({ needed: need });
+        return false;
+      }
+      if (choice === "free") {
+        this.engineSel.value = free.id;
+        Object.assign(eng, free);
+        await this.saveFilm(cur => ({ options: { ...(cur.options || {}), engine: free.id } }));
+        return true;
+      }
+      return false;
     },
 
     /* ---------- 2. characters ---------- */
@@ -381,10 +424,10 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
           return st.url;
         } catch (e) {
           if (/Stopped|Cancelled/.test(e.message)) throw e;
-          if (e.code === "ENGINE_UNAVAILABLE" || e.code === "NO_CREDITS") throw e;
+          if (["ENGINE_UNAVAILABLE", "NO_CREDITS", "SIGN_IN", "CREDITS"].includes(e.code)) throw e;
           if (e.code === "PROVIDER_BUSY") {
-            // Switch to another available engine if there is one, otherwise wait for the provider.
-            const alt = SA.readyEngines("video").find(x => x.id !== eng.id && !(this.busyEngines || new Set()).has(x.id));
+            // Switch to another engine of the same kind (free → free, Pro → Pro), otherwise wait for the provider.
+            const alt = SA.readyEngines("video").find(x => x.id !== eng.id && x.tier === eng.tier && !(this.busyEngines || new Set()).has(x.id));
             (this.busyEngines ||= new Set()).add(eng.id);
             if (alt) {
               toast(`${eng.label.split(" (")[0]} is busy — using ${alt.label.split(" (")[0]} instead.`);
@@ -392,7 +435,7 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
               continue;
             }
             busyWaits = (busyWaits || 0) + 1;
-            if (busyWaits > 8) throw new Error(`${eng.label.split(" (")[0]} stayed busy for about 6 minutes. Try again later, or turn on the premium engines (LTX-2.3 Fast costs about $0.03 per second).`);
+            if (busyWaits > 8) throw Object.assign(new Error(`${eng.label.split(" (")[0]} stayed busy for about 6 minutes. Free servers are crowded right now — try again later, or use a Pro HD engine (Settings → Plan & credits).`), { code: "BUSY_GIVE_UP" });
             onNote?.(`provider busy — retrying in 45s (${busyWaits}/8)`);
             await sleep(45000);
             continue;
@@ -437,7 +480,7 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
             done++;
           } catch (e) {
             errors.push(e);
-            if (e.code === "ENGINE_UNAVAILABLE" || /Stopped/.test(e.message)) queue.length = 0;
+            if (["ENGINE_UNAVAILABLE", "CREDITS", "SIGN_IN", "BUSY_GIVE_UP"].includes(e.code) || /Stopped/.test(e.message)) queue.length = 0;
           }
           notes.delete(s.id);
           show();
@@ -446,8 +489,8 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
       await Promise.all(Array.from({ length: Math.min(concurrency, todo.length || 1) }, worker));
       this.renderScenes();
       if (errors.length) {
-        const fatal = errors.find(e => e.code === "ENGINE_UNAVAILABLE" || /Stopped/.test(e.message)) || errors[0];
-        if (done === 0 || fatal.code === "ENGINE_UNAVAILABLE" || /Stopped/.test(fatal.message)) throw fatal;
+        const fatal = errors.find(e => ["ENGINE_UNAVAILABLE", "CREDITS", "SIGN_IN", "BUSY_GIVE_UP"].includes(e.code) || /Stopped/.test(e.message)) || errors[0];
+        if (done === 0 || ["ENGINE_UNAVAILABLE", "CREDITS", "SIGN_IN"].includes(fatal.code) || /Stopped/.test(fatal.message)) throw fatal;
         this.step("clips", "done", `${done}/${all.length} ready — ${errors.length} shot(s) failed and will be left out (retry them in Scenes)`);
       } else this.step("clips", "done", `${all.length} clips ready`);
     },
@@ -478,6 +521,11 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
       }
       const eng = SA.readyEngines("music")[0];
       if (!eng) return null;
+      const cost = SA.creditCost(eng.id, 1);
+      if (cost && (SA.state.credits?.balance ?? 0) < cost) {
+        toast("Not enough Pro credits for an AI soundtrack — the video is made without music.");
+        return null;
+      }
       const total = film.scenes.reduce((n, s) => n + (s.seconds || 6), 0);
       const res = await SA.api("music_generate", { engine: eng.id, instrumental: true, prompt: `Instrumental film score, ${film.mood || "cinematic"} mood, about ${total} seconds, for a video titled "${film.title || ""}": ${film.logline || this.story.value.slice(0, 300)}. Style: ${o.style}.`, projectId: this.project.id }, { timeout: 10 * 60000 });
       const url = res.url || res.audioData;
@@ -860,13 +908,14 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
       const eng = SA.engine("video", this.cEngine.value);
       this.cBtn.disabled = true;
       this.cStatus.className = "status-line";
-      this.cStatus.textContent = eng?.tier === "premium" ? `Generating with ${eng.label}… this usually takes 1–4 minutes.` : "Sending your request…";
+      this.cStatus.textContent = eng?.tier === "premium" ? `Generating with ${eng.label.split(" (")[0]}… this usually takes 1–4 minutes.` : "Sending your request…";
       try {
         await this.ensureProject(prompt);
         const res = await SA.api("video_generate", { engine: this.cEngine.value, prompt, seconds: Number(this.cSeconds.value), aspectRatio: this.cRatio.value, mode: this.cMode.value, images: this.cImages, projectId: this.project.id }, { timeout: 15 * 60000 });
         const clip = { jobId: res.jobId, prompt, engine: this.cEngine.value, seconds: res.seconds, ratio: res.aspectRatio, status: res.status, url: res.url || null, at: Date.now() };
         await this.upsertClip(clip);
         SA.history.add({ kind: "video", title: "Video clip: " + prompt.slice(0, 70), projectId: this.project.id });
+        if (eng?.tier === "premium") SA.refreshCredits();
         if (res.status !== "completed") {
           this.cStatus.textContent = "Accepted — generating (usually 1–5 minutes). You can keep working.";
           this.pollClip(clip);
@@ -911,7 +960,7 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
           toast("Your clip is ready!", "good");
           if (this.project?.id === projectId) this.showClip(st.url);
         } else {
-          // Clip created by the earlier NOVA version (legacy endpoint)
+          // Clip created by the previous version (legacy endpoint)
           for (let i = 0; i < 200; i++) {
             await sleep(6000);
             const st = await SA.api("check_video", { videoId: clip.videoId }).catch(e => (e.status === 404 ? { status: "failed", error: e.message } : null));
@@ -970,7 +1019,7 @@ Return JSON: {"title":"","logline":"","mood":"","characters":[{"name":"","look":
         for (const j of legacy.jobs || []) {
           if (have.has(j.video_id) || jobs.some(x => x.params && x.prompt === j.prompt && j.status === x.status)) continue;
           if (j.project_id && j.project_id !== this.project.id) continue;
-          await this.upsertClip({ videoId: j.video_id, prompt: j.prompt || "(earlier NOVA video)", seconds: j.seconds, ratio: j.aspect_ratio, status: j.status || "processing", url: j.url, at: Date.parse(j.created_at) || Date.now() });
+          await this.upsertClip({ videoId: j.video_id, prompt: j.prompt || "(earlier video)", seconds: j.seconds, ratio: j.aspect_ratio, status: j.status || "processing", url: j.url, at: Date.parse(j.created_at) || Date.now() });
           added++;
         }
         toast(added ? `Added ${added} earlier clip(s).` : "All your clips are already here.");
