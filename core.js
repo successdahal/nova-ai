@@ -5,7 +5,7 @@
 (() => {
   "use strict";
 
-  const DEFAULT_API = "https://nova-ai-brain.successdahal75.workers.dev";
+  const DEFAULT_API = "https://success-ai.successdahal75.workers.dev";
   const SA = (window.SA = {
     version: "2.0.0",
     config: { API: localStorage.getItem("sa_api_url") || DEFAULT_API, DEFAULT_API },
