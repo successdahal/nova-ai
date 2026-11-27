@@ -8,7 +8,7 @@
   const DEFAULT_API = "https://success-ai.successdahal75.workers.dev";
   const SA = (window.SA = {
     version: "2.0.0",
-    config: { API: localStorage.getItem("sa_api_url") || DEFAULT_API, DEFAULT_API },
+    config: { API: ((u => u && !/nova-ai/.test(u) ? u : DEFAULT_API)(localStorage.getItem("sa_api_url"))), DEFAULT_API },
     state: { user: null, token: localStorage.getItem("sa_token") || null, view: "home", serverStatus: null },
     studios: {},
     order: []

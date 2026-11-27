@@ -1,20 +1,20 @@
 /* Success AI service worker — caches the app shell only. API calls are never cached. */
-const CACHE = "success-ai-shell-v3";
+const CACHE = "success-ai-shell-v4";
 const SHELL = [
   "./",
   "index.html",
-  "css/app.css",
-  "js/core.js",
-  "js/render.js",
-  "js/platform.js",
-  "js/chat.js",
-  "js/image.js",
-  "js/video.js",
-  "js/music.js",
-  "js/documents.js",
-  "js/build.js",
-  "js/library.js",
-  "js/boot.js",
+  "app.css",
+  "core.js",
+  "render.js",
+  "platform.js",
+  "chat.js",
+  "image.js",
+  "video.js",
+  "music.js",
+  "documents.js",
+  "build.js",
+  "library.js",
+  "boot.js",
   "manifest.webmanifest",
   "icon.svg"
 ];

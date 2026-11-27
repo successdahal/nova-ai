@@ -15,14 +15,14 @@
     if (!loading) {
       loading = (async () => {
         onStatus?.("Loading the video engine (about 30 MB, first time only)…");
-        const { FFmpeg } = await import(abs("vendor/ffmpeg/index.js"));
+        const { FFmpeg } = await import(abs("ffmpeg-index.js"));
         const ff = new FFmpeg();
         ff.on("log", ({ message }) => logSink && logSink(message));
         ff.on("progress", ({ progress }) => progressSink && progressSink(Math.max(0, Math.min(1, progress))));
         // Prefer the self-hosted engine; fall back to the public CDN copy of the exact same version
         // (useful when the 31 MB .wasm wasn't uploaded, e.g. GitHub's web uploader caps files at 25 MB).
-        const local = await fetch(abs("vendor/ffmpeg-core/ffmpeg-core.wasm"), { method: "HEAD" }).then(r => r.ok).catch(() => false);
-        const base = local ? abs("vendor/ffmpeg-core/") : "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/";
+        const local = await fetch(abs("ffmpeg-core.wasm"), { method: "HEAD" }).then(r => r.ok).catch(() => false);
+        const base = local ? abs("./") : "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/";
         await ff.load({ coreURL: base + "ffmpeg-core.js", wasmURL: base + "ffmpeg-core.wasm" });
         ffmpeg = ff;
         return ff;
