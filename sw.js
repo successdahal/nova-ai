@@ -1,5 +1,5 @@
 /* Success AI service worker — caches the app shell only. API calls are never cached. */
-const CACHE = "success-ai-shell-v4";
+const CACHE = "success-ai-shell-v5";
 const SHELL = [
   "./",
   "index.html",

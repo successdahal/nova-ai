@@ -1249,15 +1249,32 @@
     set(theme) {
       localStorage.setItem("sa_theme", theme);
       SA.theme.apply();
+
     },
     apply() {
       const t = SA.theme.get();
       const resolved = t === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : t;
       document.documentElement.dataset.theme = resolved;
       $('meta[name="theme-color"]')?.setAttribute("content", resolved === "light" ? "#f5f6fa" : "#070a12");
+      SA.palette?.apply();
     }
   };
   SA.theme.apply();
+
+  // Colour themes (palettes adapted from the Shadcn/tweakcn theme library).
+  SA.palette = {
+    list: {"gold": ["Success Gold", "#070a12", "linear-gradient(115deg,#f5c062,#ff8a5c 55%,#ff5f8f)"], "cosmic": ["Cosmic Night", "#0f0f1a", "linear-gradient(115deg,#a48fff,#7986cb 55%,#ff79c6)"], "ocean": ["Ocean Breeze", "#0f172a", "linear-gradient(115deg,#34d399,#2dd4bf 55%,#38bdf8)"], "aurora": ["Northern Lights", "#1a1d23", "linear-gradient(115deg,#34a85a,#66d9ef 55%,#6495ed)"], "rose": ["Quantum Rose", "#1a0922", "linear-gradient(115deg,#ff6bef,#c359e3 55%,#547aff)"], "mono": ["Midnight Mono", "#000000", "linear-gradient(115deg,#ffffff,#cfcfcf 55%,#9a9a9a)"]},
+    get: () => localStorage.getItem("sa_palette") || "gold",
+    set(p) { localStorage.setItem("sa_palette", p); SA.palette.apply(); },
+    apply() {
+      const p = SA.palette.get();
+      if (p === "gold" || !SA.palette.list[p]) delete document.documentElement.dataset.palette;
+      else document.documentElement.dataset.palette = p;
+      const light = document.documentElement.dataset.theme === "light";
+      $('meta[name="theme-color"]')?.setAttribute("content", light ? getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#f5f6fa" : (SA.palette.list[p] || SA.palette.list.gold)[1]);
+    }
+  };
+  SA.palette.apply();
 
   /* ====================================================================== */
   /* Migration of data from the previous version (localStorage → IndexedDB) */

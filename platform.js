@@ -532,7 +532,16 @@
     render_appearance(el) {
       const sel = h("select", { class: "select", style: { maxWidth: "240px" }, onchange: () => SA.theme.set(sel.value) }, ...[["dark", "Dark"], ["light", "Light"], ["system", "Match system"]].map(([v, l]) => h("option", { value: v }, l)));
       sel.value = SA.theme.get();
-      el.append(h("div", { class: "card stack", style: { maxWidth: "520px" } }, h("h2", {}, "Theme"), sel,
+      const grid = h("div", { class: "palette-grid" });
+      const drawPalettes = () => {
+        grid.replaceChildren(...Object.entries(SA.palette.list).map(([key, [label, bg, grad]]) =>
+          h("button", { class: "palette-opt" + (SA.palette.get() === key ? " on" : ""), title: label, onclick: () => { SA.palette.set(key); drawPalettes(); } },
+            h("div", { class: "palette-swatch", style: { background: `${grad.replace("linear-gradient(115deg,", "linear-gradient(115deg," + bg + " 0 38%,")}` } }),
+            h("span", {}, label))));
+      };
+      drawPalettes();
+      el.append(h("div", { class: "card stack", style: { maxWidth: "720px" } }, h("h2", {}, "Mode"), sel,
+        h("h2", { style: { marginTop: "14px" } }, "Colour theme"), h("div", { class: "faint" }, "Changes the whole app's colours. Saved on this device."), grid,
         h("h2", { style: { marginTop: "14px" } }, "Keyboard shortcuts"),
         ...[["Ctrl/⌘ + K", "Go to AI Chat"], ["Ctrl/⌘ + Shift + N", "New project"], ["Ctrl/⌘ + S", "Save current studio"], ["Ctrl/⌘ + Enter", "Send / generate"], ["?", "Show shortcuts"]].map(([k, d]) => h("div", { class: "row" }, h("span", { class: "kbd" }, k), h("span", { class: "muted" }, d)))
       ));
